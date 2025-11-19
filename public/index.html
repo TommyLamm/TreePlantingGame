@@ -110,10 +110,23 @@
 
                         {/* Max Level Glow Filter */}
                         {safeLevel === MAX_LEVEL && (<filter id="glow"><feGaussianBlur stdDeviation="6" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>)}
+
+                        {/* Ground Gradient */}
+                        <radialGradient id="groundGradient" cx="50%" cy="0%" r="100%" fx="50%" fy="0%">
+                            <stop offset="0%" stopColor="#6CCF56" />
+                            <stop offset="100%" stopColor="#4CAF50" />
+                        </radialGradient>
                     </defs>
 
                     {/* Ground Shadow */}
                     <ellipse cx="150" cy="380" rx={60 + safeLevel * 5} ry={10} fill="#3E2723" opacity="0.2" />
+
+                    {/* Grass Ground Plane */}
+                    <path d={`M0 380 
+                               Q75 370 150 380 
+                               Q225 390 300 380 
+                               L300 450 L0 450 Z`} 
+                          fill="url(#groundGradient)" />
 
                     {/* Trunk */}
                     <path d={`M${150 - trunkWidth/2} 380 
@@ -221,8 +234,12 @@
             const [level, setLevel] = useState(1);
             const [activeEvent, setActiveEvent] = useState(null);
             const [isDemoMode, setIsDemoMode] = useState(false);
-            const [isMuted, setIsMuted] = useState(true);
-            const [lang, setLang] = useState('en');
+            const [isMuted, setIsMuted] = useState(() => {
+                const saved = localStorage.getItem('zenMuted');
+                return saved !== null ? JSON.parse(saved) : true;
+            });
+            // Read initial language from localStorage or default to 'en'
+            const [lang, setLang] = useState(localStorage.getItem('zenLang') || 'en');
             const [logs, setLogs] = useState([]);
 
             // OPTIMISTIC UI STATE: To prevent double clicking
@@ -236,6 +253,11 @@
                 args.forEach((arg, i) => { str = str.replace(`{${i}}`, arg); });
                 return str;
             };
+            
+             // Sync audio state on mount
+            useEffect(() => {
+                audio.setMuted(isMuted);
+            }, []);
 
             // Sync activeEvent to localActiveEvent unless we are "processing" an action
             useEffect(() => {
@@ -323,6 +345,11 @@
             };
 
             const handleLogin = (name) => {
+                // Resume audio context if it was created in suspended state (e.g. auto-unmute on load)
+                if (audio.ctx && audio.ctx.state === 'suspended') {
+                    audio.ctx.resume();
+                }
+
                 setCurrentUser(name);
                 audio.playClick();
             };
@@ -334,8 +361,24 @@
                 fetch('/api/users').then(res => res.json()).then(users => setExistingUsers(users));
             };
 
-            const toggleMute = () => { setIsMuted(!isMuted); audio.setMuted(!isMuted); if (!isMuted) audio.playClick(); };
-            const cycleLang = () => { audio.playClick(); const langs = ['en', 'zh-CN', 'zh-TW']; setLang(langs[(langs.indexOf(lang) + 1) % langs.length]); };
+            const toggleMute = () => { 
+                const newState = !isMuted;
+                setIsMuted(newState); 
+                localStorage.setItem('zenMuted', JSON.stringify(newState));
+                audio.setMuted(newState); 
+                if (!newState) audio.playClick(); 
+            };
+            
+            const cycleLang = () => {
+                audio.playClick();
+                const langs = ['en', 'zh-CN', 'zh-TW'];
+                const nextIdx = (langs.indexOf(lang) + 1) % langs.length;
+                const newLang = langs[nextIdx];
+                setLang(newLang);
+                // Save preference to browser storage
+                localStorage.setItem('zenLang', newLang);
+            };
+
             const addLog = (msg) => setLogs(prev => [msg, ...prev].slice(0, 2));
             const isDay = new Date().getHours() > 6 && new Date().getHours() < 18;
 
