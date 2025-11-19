@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zen Arboretum</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes bounce-slow { 0%, 100% { transform: translateY(-5%); } 50% { transform: translateY(0); } }
+        @keyframes ping-slow { 75%, 100% { transform: scale(2); opacity: 0; } }
+        @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .animate-spin-slow { animation: spin-slow 8s linear infinite; }
+        .animate-bounce-slow { animation: bounce-slow 3s infinite; }
+        .animate-ping-slow { animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite; }
+        .animate-pulse-slow { animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo, useCallback } = window.React;
+        const ReactDOM = window.ReactDOM;
+
+        // Icons
+        const IconBase = ({ size = 24, color = "currentColor", children, className = "" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>);
+        const CloudRain = (props) => <IconBase {...props}><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></IconBase>;
+        const Bug = (props) => <IconBase {...props}><rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 7-3 2"/><path d="m5 7 3 2"/><path d="m19 19-3-2"/><path d="m5 19 3-2"/><path d="M20 13h-4"/><path d="M4 13h4"/><path d="m10 4 1 2"/><path d="m14 4-1 2"/></IconBase>;
+        const Sun = (props) => <IconBase {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></IconBase>;
+        const Moon = (props) => <IconBase {...props}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></IconBase>;
+        const Zap = (props) => <IconBase {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></IconBase>;
+        const Shovel = (props) => <IconBase {...props}><path d="M2 22v-5l5-5 5 5-5 5z"/><path d="M9.5 14.5 16 8"/><path d="m17 2 5 5-.5.5a3.53 3.53 0 0 1-5 0s0 0 0 0a3.53 3.53 0 0 1 0-5L17 2"/></IconBase>;
+        const Droplets = (props) => <IconBase {...props}><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/></IconBase>;
+        const Sparkles = (props) => <IconBase {...props}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5H5"/><path d="M3 5h2"/><path d="M5 7V3"/></IconBase>;
+        const Clock = (props) => <IconBase {...props}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></IconBase>;
+        const Volume2 = (props) => <IconBase {...props}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></IconBase>;
+        const VolumeX = (props) => <IconBase {...props}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></IconBase>;
+        const Leaf = (props) => <IconBase {...props}><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.77 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></IconBase>;
+        const User = (props) => <IconBase {...props}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></IconBase>;
+        const CloudCheck = (props) => <IconBase {...props}><path d="M12 10v6"/><path d="M9 13l3 3 3-3"/><path d="M20 16.2A4.5 4.5 0 0 0 21.4 8 5.4 5.4 0 0 0 8 8 4.6 4.6 0 0 0 4.5 12 4 4 0 0 0 6 16.2"/></IconBase>;
+        const CloudOff = (props) => <IconBase {...props}><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/><line x1="2" y1="2" x2="22" y2="22"/></IconBase>;
+
+        const MAX_LEVEL = 10;
+        const TRANSLATIONS = {
+            en: { title: "Zen Arboretum", timeWarp: "Time Warp (600x)", realTime: "Real Time", rateDemo: "1 real sec = 10 game mins", rateNormal: "1 XP / Game Hour", status: "Current Status", level: "Level", max: "MAX", action: "Action Required!", water: "Water", pest: "Pest", feed: "Feed", peaceful: "Tree is growing peacefully...", welcome: "Welcome, {0}. Plant a seed and wait...", hourPassed: "One hour passed. The tree grew slightly naturally.", eventSoil: "The soil is dry! The tree needs water.", eventPest: "Beetles are eating the leaves!", eventPale: "The tree looks pale. It needs nutrients.", eventPrefix: "⚠️ EVENT:", resolved: "Event Resolved! Gained {0} XP.", fail: "That didn't help... The tree still needs attention!", levelUp: "🎉 LEVEL UP! Your tree is now Level {0}", maxLevel: "Your tree has reached its full potential!", langName: "EN", loginTitle: "Who is planting today?", loginPlaceholder: "Enter your name...", start: "Enter Garden", logout: "Switch User", usingServer: "Connected to server. Real-time saving active.", usingLocal: "Server unreachable. Using local storage.", selectUser: "Select User", createNew: "Create New User", back: "Back to List" },
+            'zh-CN': { title: "禅意树圃", timeWarp: "时光飞逝 (600倍)", realTime: "实时模式", rateDemo: "1现实秒 = 10游戏分", rateNormal: "1 XP / 游戏小时", status: "当前状态", level: "等级", max: "最大", action: "需要采取行动！", water: "浇水", pest: "除虫", feed: "施肥", peaceful: "树木正在宁静地生长...", welcome: "欢迎, {0}。播下一颗种子，静静等待...", hourPassed: "一小时过去了。树木自然生长了一点。", eventSoil: "土壤干了！树需要水。", eventPest: "甲虫正在吃叶子！", eventPale: "树看起来很苍白。它需要养分。", eventPrefix: "⚠️ 事件：", resolved: "事件解决！获得了 {0} XP。", fail: "那没用... 树仍然需要照料！", levelUp: "🎉 升级了！你的树现在是等级 {0}", maxLevel: "你的树已经达到了潜力的巅峰！", langName: "简", loginTitle: "今天是谁在种植？", loginPlaceholder: "输入你的名字...", start: "进入花园", logout: "切换用户", usingServer: "已连接到服务器。实时保存已激活。", usingLocal: "无法连接服务器。使用本地存储。", selectUser: "选择用户", createNew: "新建用户", back: "返回列表" },
+            'zh-TW': { title: "禪意樹圃", timeWarp: "時光飛逝 (600倍)", realTime: "實時模式", rateDemo: "1現實秒 = 10遊戲分", rateNormal: "1 XP / 遊戲小時", status: "當前狀態", level: "等級", max: "最大", action: "需要採取行動！", water: "澆水", pest: "除蟲", feed: "施肥", peaceful: "樹木正在寧靜地生長...", welcome: "歡迎, {0}。播下一顆種子，靜靜等待...", hourPassed: "一小時過去了。樹木自然生長了一點。", eventSoil: "土壤乾了！樹需要水。", eventPest: "甲蟲正在吃葉子！", eventPale: "樹看起來很蒼白。它需要養分。", eventPrefix: "⚠️ 事件：", resolved: "事件解決！獲得了 {0} XP。", fail: "那沒用... 樹仍然需要照料！", levelUp: "🎉 升級了！你的樹現在是等級 {0}", maxLevel: "你的樹已經達到了潛力的巔峰！", langName: "繁", loginTitle: "今天是用誰在種植？", loginPlaceholder: "輸入你的名字...", start: "進入花園", logout: "切換用戶", usingServer: "已連接到服務器。實時保存已激活。", usingLocal: "無法連接服務器。使用本地存儲。", selectUser: "選擇用戶", createNew: "新建用戶", back: "返回列表" }
+        };
+
+        const audio = {
+            ctx: null, bgmNodes: [], isMuted: true,
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+            setMuted(mute) { this.isMuted = mute; if (this.ctx && this.ctx.state === 'suspended' && !mute) this.ctx.resume(); if (mute) this.stopBgm(); else this.startBgm(); },
+            startBgm() { if (this.bgmNodes.length > 0) return; this.init(); const bufferSize = this.ctx.sampleRate * 4; const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate); const data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; } const noise = this.ctx.createBufferSource(); noise.buffer = buffer; noise.loop = true; const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 400; filter.Q.value = 0; const gain = this.ctx.createGain(); gain.gain.value = 0.15; const lfo = this.ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.12; const lfoGain = this.ctx.createGain(); lfoGain.gain.value = 300; lfo.connect(lfoGain); lfoGain.connect(filter.frequency); noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination); noise.start(); lfo.start(); this.bgmNodes.push({ osc: noise, lfo: lfo, nodes: [filter, gain, lfoGain] }); },
+            stopBgm() { this.bgmNodes.forEach(n => { try { if (n.osc) n.osc.stop(); if (n.lfo) n.lfo.stop(); if (n.osc) n.osc.disconnect(); if (n.lfo) n.lfo.disconnect(); if (n.nodes) n.nodes.forEach(node => node.disconnect()); } catch (e) { console.error(e) } }); this.bgmNodes = []; },
+            playTone(freq, type, duration, vol = 0.1) { if (this.isMuted) return; this.init(); const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.frequency.value = freq; osc.type = type; osc.connect(gain); gain.connect(this.ctx.destination); osc.start(); gain.gain.setValueAtTime(vol, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration); osc.stop(this.ctx.currentTime + duration); },
+            playClick() { this.playTone(600, 'triangle', 0.1, 0.05); },
+            playAlert() { if (this.isMuted) return; this.init(); const now = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.connect(gain); gain.connect(this.ctx.destination); osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(392.00, now + 0.2); gain.gain.setValueAtTime(0.1, now); gain.gain.setTargetAtTime(0, now + 0.5, 0.1); osc.start(); osc.stop(now + 1.0); },
+            playWater() { if (this.isMuted) return; this.init(); const bufferSize = this.ctx.sampleRate * 1.0; const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate); const data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; } const noise = this.ctx.createBufferSource(); noise.buffer = buffer; const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 800; const gain = this.ctx.createGain(); noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination); gain.gain.setValueAtTime(0.15, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.8); filter.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.8); noise.start(); },
+            playPest() { if (this.isMuted) return; this.init(); const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sawtooth'; osc.frequency.value = 150; const lfo = this.ctx.createOscillator(); lfo.frequency.value = 30; const lfoGain = this.ctx.createGain(); lfoGain.gain.value = 50; lfo.connect(lfoGain); lfoGain.connect(osc.frequency); lfo.start(); osc.connect(gain); gain.connect(this.ctx.destination); gain.gain.setValueAtTime(0.05, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4); osc.start(); osc.stop(this.ctx.currentTime + 0.4); },
+            playFertilize() { if (this.isMuted) return; this.init(); const now = this.ctx.currentTime; [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq; osc.connect(gain); gain.connect(this.ctx.destination); const start = now + (i * 0.05); gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(0.05, start + 0.05); gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5); osc.start(start); osc.stop(start + 0.6); }); },
+            playLevelUp() { if (this.isMuted) return; this.init(); const now = this.ctx.currentTime; [261.63, 329.63, 392.00, 523.25].forEach((freq, i) => { const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'triangle'; osc.frequency.value = freq; osc.connect(gain); gain.connect(this.ctx.destination); gain.gain.setValueAtTime(0.05, now + i*0.1); gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0); osc.start(now + i*0.1); osc.stop(now + 2.0); }); }
+        };
+
+        const TreeVisual = ({ level, eventType }) => {
+            const safeLevel = Number(level) || 1;
+            const trunkBaseWidth = 10; const trunkHeightFactor = 15; const foliageRadiusBase = 25; const branchThicknessFactor = 0.5;
+            const trunkHeight = 100 + (safeLevel * trunkHeightFactor);
+            const trunkWidth = trunkBaseWidth + (safeLevel * 2);
+            const foliageSize = foliageRadiusBase + (safeLevel * 8);
+            const trunkColor = safeLevel === MAX_LEVEL ? '#4A3228' : safeLevel > 7 ? '#5D4037' : '#795548';
+            const leafColor = safeLevel === MAX_LEVEL ? '#FFD700' : safeLevel > 7 ? '#2E7D32' : safeLevel > 4 ? '#4CAF50' : '#81C784';
+            const leafHighlightColor = safeLevel === MAX_LEVEL ? '#FFF59D' : '#A5D6A7';
+            const treeTopY = 380 - trunkHeight;
+
+            if (safeLevel === 1) {
+                return (
+                    <svg viewBox="0 0 200 200" className="w-64 h-64 drop-shadow-xl transition-all duration-1000">
+                        <circle cx="100" cy="170" r="60" fill="#8D6E63" opacity="0.3" />
+                        <path d="M100 160 Q95 140 85 130" stroke="#81C784" strokeWidth="4" fill="none" strokeLinecap="round" />
+                        <path d="M100 160 Q105 140 115 130" stroke="#81C784" strokeWidth="4" fill="none" strokeLinecap="round" />
+                        <circle cx="85" cy="130" r="5" fill="#66BB6A" />
+                        <circle cx="115" cy="130" r="5" fill="#66BB6A" />
+                    </svg>
+                );
+            }
+            return (
+                <svg viewBox="0 -50 300 450" className={`w-full h-full transition-all duration-1000 ${eventType ? 'animate-pulse' : ''}`}>
+                    <defs>
+                        {/* Trunk Gradient */}
+                        <linearGradient id="trunkGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#5A3E2D" />
+                            <stop offset="50%" stopColor={trunkColor} />
+                            <stop offset="100%" stopColor="#5A3E2D" />
+                        </linearGradient>
+
+                        {/* Leaf Gradient */}
+                        <radialGradient id="leafGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                            <stop offset="0%" stopColor={leafHighlightColor} />
+                            <stop offset="100%" stopColor={leafColor} />
+                        </radialGradient>
+                        <radialGradient id="leafGradient2" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                            <stop offset="0%" stopColor={leafHighlightColor} stopOpacity="0.8" />
+                            <stop offset="100%" stopColor={leafColor} stopOpacity="0.9" />
+                        </radialGradient>
+
+                        {/* Max Level Glow Filter */}
+                        {safeLevel === MAX_LEVEL && (<filter id="glow"><feGaussianBlur stdDeviation="6" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>)}
+                    </defs>
+
+                    {/* Ground Shadow */}
+                    <ellipse cx="150" cy="380" rx={60 + safeLevel * 5} ry={10} fill="#3E2723" opacity="0.2" />
+
+                    {/* Trunk */}
+                    <path d={`M${150 - trunkWidth/2} 380 
+                               Q150 ${380 - trunkHeight/2} 
+                               ${150 - trunkWidth/2 + (safeLevel * 0.5)} ${treeTopY}`} 
+                          fill="url(#trunkGradient)" stroke="url(#trunkGradient)" strokeWidth={trunkWidth} strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d={`M${150 + trunkWidth/2} 380 
+                               Q150 ${380 - trunkHeight/2} 
+                               ${150 + trunkWidth/2 - (safeLevel * 0.5)} ${treeTopY}`} 
+                          fill="url(#trunkGradient)" stroke="url(#trunkGradient)" strokeWidth={trunkWidth} strokeLinecap="round" strokeLinejoin="round"/>
+                    {/* Trunk base */}
+                    <rect x={150 - trunkWidth/2} y={treeTopY} width={trunkWidth} height={380 - treeTopY} fill="url(#trunkGradient)" />
+
+
+                    {/* Roots */}
+                    {safeLevel >= 4 && (
+                        <g>
+                            <path d={`M${150 - trunkWidth/2 + 5} 380 Q${130 - (safeLevel * 1)} 390 ${110 - (safeLevel * 2)} 380`} stroke={trunkColor} strokeWidth={trunkWidth * 0.3} fill="none" strokeLinecap="round" opacity="0.7" />
+                            <path d={`M${150 + trunkWidth/2 - 5} 380 Q${170 + (safeLevel * 1)} 390 ${190 + (safeLevel * 2)} 380`} stroke={trunkColor} strokeWidth={trunkWidth * 0.3} fill="none" strokeLinecap="round" opacity="0.7" />
+                        </g>
+                    )}
+
+
+                    {/* Branches */}
+                    {safeLevel >= 2 && (<><path d={`M150 ${treeTopY + 30} Q ${130 - (safeLevel * 2)} ${treeTopY - 20} ${100 - (safeLevel * 3)} ${treeTopY - 50}`} stroke={trunkColor} strokeWidth={trunkWidth * branchThicknessFactor} fill="none" strokeLinecap="round"/><path d={`M150 ${treeTopY + 30} Q ${170 + (safeLevel * 2)} ${treeTopY - 20} ${200 + (safeLevel * 3)} ${treeTopY - 50}`} stroke={trunkColor} strokeWidth={trunkWidth * branchThicknessFactor} fill="none" strokeLinecap="round"/></>)}
+                    {safeLevel >= 4 && (<><path d={`M150 ${treeTopY + 50} Q ${120 - (safeLevel * 1)} ${treeTopY + 20} ${80 - (safeLevel * 2)} ${treeTopY}`} stroke={trunkColor} strokeWidth={trunkWidth * branchThicknessFactor * 0.7} fill="none" strokeLinecap="round" opacity="0.8" /><path d={`M150 ${treeTopY + 50} Q ${180 + (safeLevel * 1)} ${treeTopY + 20} ${220 + (safeLevel * 2)} ${treeTopY}`} stroke={trunkColor} strokeWidth={trunkWidth * branchThicknessFactor * 0.7} fill="none" strokeLinecap="round" opacity="0.8" /></>)}
+
+
+                    {/* Foliage */}
+                    <g className="animate-bounce-slow" filter={safeLevel === MAX_LEVEL ? "url(#glow)" : ""}>
+                        {/* Main foliage layers */}
+                        <circle cx="150" cy={treeTopY - 10} r={foliageSize} fill="url(#leafGradient)" opacity="0.9" />
+                        <circle cx="120" cy={treeTopY + 5} r={foliageSize * 0.8} fill="url(#leafGradient2)" opacity="0.85" />
+                        <circle cx="180" cy={treeTopY + 5} r={foliageSize * 0.8} fill="url(#leafGradient2)" opacity="0.85" />
+                        {safeLevel >= 3 && (<circle cx="150" cy={treeTopY - foliageSize * 0.7} r={foliageSize * 0.6} fill="url(#leafGradient)" opacity="0.9" />)}
+                        {safeLevel >= 5 && (<><circle cx="100" cy={treeTopY + 20} r={foliageSize * 0.6} fill="url(#leafGradient2)" opacity="0.8" /><circle cx="200" cy={treeTopY + 20} r={foliageSize * 0.6} fill="url(#leafGradient2)" opacity="0.8" /></>)}
+
+                        {/* Blossoms/Fruits */}
+                        {safeLevel >= 6 && safeLevel < MAX_LEVEL && (<>
+                            <circle cx="140" cy={treeTopY + 20} r="6" fill="#E91E63" />
+                            <circle cx="160" cy={treeTopY - 10} r="6" fill="#E91E63" />
+                            <circle cx="120" cy={treeTopY + 30} r="6" fill="#E91E63" />
+                            <circle cx="185" cy={treeTopY + 25} r="6" fill="#E91E63" />
+                            <circle cx="110" cy={treeTopY - 15} r="6" fill="#E91E63" />
+                        </>)}
+
+                        {/* Max Level Orb/Aura */}
+                        {safeLevel === MAX_LEVEL && (<><circle cx="140" cy={treeTopY} r="8" fill="#FFFFFF" className="animate-ping-slow" /><circle cx="160" cy={treeTopY - 20} r="5" fill="#FFFFFF" className="animate-ping-slow delay-100" /><circle cx="150" cy={treeTopY} r="40" stroke="#FFD700" strokeWidth="2" fill="none" className="animate-spin-slow" strokeDasharray="10,5" /></>)}
+                    </g>
+                    {eventType === 'WATER' && (<g transform="translate(180, 250)"><CloudRain size={48} color="#4FC3F7" className="animate-bounce" /></g>)}
+                    {eventType === 'PEST' && (<g transform="translate(120, 280)"><Bug size={40} color="#E53935" className="animate-pulse" /></g>)}
+                    {eventType === 'FERTILIZE' && (<g transform="translate(150, 350)"><Sparkles size={40} color="#FFB74D" className="animate-spin-slow" /></g>)}
+                </svg>
+            );
+        };
+
+        function ActionButton({ icon, label, onClick, isActive }) {
+            const handleClick = () => { audio.playClick(); onClick(); }
+            return (
+                <button onClick={handleClick} disabled={!isActive} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-lg transition-all transform hover:scale-105 active:scale-95 ${isActive ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 hover:bg-blue-600' : 'bg-white border border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 cursor-not-allowed'}`}>{icon}<span className="text-[10px] font-bold uppercase">{label}</span></button>
+            )
+        }
+
+        const LoginScreen = ({ onLogin, t, existingUsers = [] }) => {
+            const [mode, setMode] = useState(existingUsers.length > 0 ? 'select' : 'create');
+            const [name, setName] = useState("");
+            const handleSubmit = (e) => { e.preventDefault(); if(name.trim().length > 0) onLogin(name.trim()); }
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white/90 p-8 rounded-3xl shadow-2xl text-center max-w-xs w-full animate-in zoom-in-95 duration-300 max-h-[80vh] overflow-y-auto">
+                        <div className="mb-4 text-green-600 flex justify-center"><Leaf size={48} /></div>
+                        {mode === 'select' ? (
+                            <div className="space-y-3">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-4">{t('selectUser')}</h2>
+                                <div className="space-y-2 max-h-60 overflow-y-auto">
+                                    {existingUsers.map(user => (
+                                        <button key={user} type="button" onClick={() => onLogin(user)} className="w-full py-3 px-4 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-xl transition-all flex items-center justify-between group"><span>{user}</span><span className="opacity-0 group-hover:opacity-100 text-lg">→</span></button>
+                                    ))}
+                                </div>
+                                <div className="border-t border-gray-200 my-4"></div>
+                                <button type="button" onClick={() => setMode('create')} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all transform hover:scale-105">{t('createNew')}</button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('loginTitle')}</h2>
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('loginPlaceholder')} className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none text-gray-800 text-lg text-center" autoFocus />
+                                    <button type="submit" disabled={name.trim().length === 0} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100">{t('start')}</button>
+                                </form>
+                                {existingUsers.length > 0 && (<button type="button" onClick={() => setMode('select')} className="text-sm text-gray-500 hover:text-gray-800 underline">{t('back')}</button>)}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
+        function App() {
+            const [currentUser, setCurrentUser] = useState(null);
+            const [isSaving, setIsSaving] = useState(false);
+            const [serverStatus, setServerStatus] = useState('unknown'); 
+            const [existingUsers, setExistingUsers] = useState([]);
+
+            const [xp, setXp] = useState(0);
+            const [level, setLevel] = useState(1);
+            const [activeEvent, setActiveEvent] = useState(null);
+            const [isDemoMode, setIsDemoMode] = useState(false);
+            const [isMuted, setIsMuted] = useState(true);
+            const [lang, setLang] = useState('en');
+            const [logs, setLogs] = useState([]);
+
+            // OPTIMISTIC UI STATE: To prevent double clicking
+            const [localActiveEvent, setLocalActiveEvent] = useState(null);
+
+            const xpRequired = Math.max(1, level * 100);
+            const progress = Math.min(100, (xp / xpRequired) * 100);
+
+            const t = (key, ...args) => {
+                let str = TRANSLATIONS[lang][key] || key;
+                args.forEach((arg, i) => { str = str.replace(`{${i}}`, arg); });
+                return str;
+            };
+
+            // Sync activeEvent to localActiveEvent unless we are "processing" an action
+            useEffect(() => {
+                 if (activeEvent) setLocalActiveEvent(activeEvent);
+                 // if activeEvent becomes null from server, local should clear too
+                 if (!activeEvent) setLocalActiveEvent(null);
+            }, [activeEvent]);
+
+            // 1. Initial Fetch
+            useEffect(() => {
+                fetch('/api/users')
+                    .then(res => res.json())
+                    .then(users => setExistingUsers(users))
+                    .catch(err => setServerStatus('offline'));
+            }, []);
+
+            // 2. Polling Loop
+            useEffect(() => {
+                if (!currentUser) return;
+                const poll = async () => {
+                    try {
+                        const res = await fetch('/api/heartbeat', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: currentUser })
+                        });
+                        if (!res.ok) throw new Error("Heartbeat failed");
+                        const data = await res.json();
+                        
+                        setXp(Number(data.xp));
+                        setLevel(Number(data.level));
+                        // Only update active event if we aren't locally hiding it for optimistic UI
+                        setActiveEvent(data.activeEvent);
+                        setIsDemoMode(data.isDemoMode);
+                        setServerStatus('connected');
+
+                        if (data.justLeveledUp) {
+                             audio.playLevelUp();
+                             addLog(t('levelUp', data.level));
+                        }
+                    } catch (e) { setServerStatus('offline'); }
+                };
+                const interval = setInterval(poll, 1000);
+                return () => clearInterval(interval);
+            }, [currentUser, t]);
+
+            // Actions with OPTIMISTIC UI
+            const handleAction = async (actionType) => {
+                // 1. Hide Button Immediately
+                setLocalActiveEvent(null);
+                
+                try {
+                    const res = await fetch('/api/action', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: currentUser, action: actionType })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.lastEventResolved) {
+                         audio.playLevelUp(); 
+                         addLog(t('resolved', data.lastReward));
+                    } else {
+                         audio.playClick();
+                         addLog(t('fail'));
+                    }
+                    // Sync final state
+                    setXp(Number(data.xp));
+                    setLevel(Number(data.level));
+                    setActiveEvent(data.activeEvent);
+                } catch(e) {
+                    console.error(e);
+                    // Revert if failed
+                    setLocalActiveEvent(activeEvent);
+                }
+            };
+            
+            const toggleDemoState = async () => {
+                try {
+                    const res = await fetch('/api/toggle-warp', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: currentUser })
+                    });
+                    const data = await res.json();
+                    setIsDemoMode(data.isDemoMode);
+                } catch (e) { console.error(e); }
+            };
+
+            const handleLogin = (name) => {
+                setCurrentUser(name);
+                audio.playClick();
+            };
+
+            const handleLogout = () => {
+                audio.playClick();
+                setCurrentUser(null);
+                setExistingUsers([]); // Clear to force re-fetch next render
+                fetch('/api/users').then(res => res.json()).then(users => setExistingUsers(users));
+            };
+
+            const toggleMute = () => { setIsMuted(!isMuted); audio.setMuted(!isMuted); if (!isMuted) audio.playClick(); };
+            const cycleLang = () => { audio.playClick(); const langs = ['en', 'zh-CN', 'zh-TW']; setLang(langs[(langs.indexOf(lang) + 1) % langs.length]); };
+            const addLog = (msg) => setLogs(prev => [msg, ...prev].slice(0, 2));
+            const isDay = new Date().getHours() > 6 && new Date().getHours() < 18;
+
+            if (!currentUser) return <LoginScreen onLogin={handleLogin} t={t} existingUsers={existingUsers} />;
+
+            return (
+                <div className={`min-h-screen flex flex-col items-center justify-center font-sans transition-colors duration-1000 ${isDay ? 'bg-gradient-to-b from-blue-200 to-blue-100' : 'bg-gradient-to-b from-indigo-900 to-slate-800 text-white'} overflow-hidden`}>
+                    <div className="absolute top-4 right-4 flex flex-col gap-2 z-30 items-end">
+                        <div className="flex gap-2">
+                             <div title={serverStatus === 'connected' ? "Online" : "Offline"} className={`flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all ${serverStatus === 'connected' ? 'bg-white text-green-500' : 'bg-red-100 text-red-500'}`}>{serverStatus === 'connected' ? <CloudCheck size={20} /> : <CloudOff size={20} />}</div>
+                             <button onClick={cycleLang} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-indigo-600 hover:bg-gray-50 font-bold text-xs">{t('langName')}</button>
+                            <button onClick={handleLogout} title={t('logout')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-red-500 hover:bg-gray-50"><User size={20} /></button>
+                            <button onClick={toggleMute} className={`flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all ${!isMuted ? 'bg-white text-blue-500' : 'bg-gray-200 text-gray-500'}`}>{isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>
+                            <button onClick={toggleDemoState} className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg text-xs font-bold transition-all ${isDemoMode ? 'bg-purple-600 text-white animate-pulse' : 'bg-white/80 text-gray-600 border border-white/50'}`}><Clock size={14} /> {isDemoMode ? t('timeWarp').split('(')[0] : t('realTime')}</button>
+                        </div>
+                        <div className="text-[10px] text-right text-gray-500 px-2">{currentUser} | {isDemoMode ? t('rateDemo') : t('rateNormal')}</div>
+                    </div>
+
+                    <div className="relative w-full max-w-md h-[85vh] flex flex-col items-center justify-end">
+                        <div className="absolute top-10 right-10 animate-pulse-slow">{isDay ? <Sun size={48} className="text-yellow-400 drop-shadow-md" /> : <Moon size={48} className="text-gray-200 drop-shadow-md" />}</div>
+                        <div className="flex-grow w-full flex items-end justify-center pb-8 relative z-10"><TreeVisual level={level} eventType={activeEvent} /></div>
+                        <div className="w-11/12 bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-4 mb-12 z-20 text-gray-800 border border-white/50">
+                            <div className="flex justify-between items-end mb-2">
+                                <div><span className="text-xs font-bold uppercase tracking-wider text-gray-400">{t('status')}</span><div className="text-3xl font-bold text-gray-800 flex items-baseline gap-1">{t('level')} {level}{level === MAX_LEVEL && <span className="text-sm text-yellow-500 ml-2">{t('max')}</span>}</div></div>
+                                <div className="text-right"><div className="text-sm font-mono text-gray-500">{Math.floor(xp)} / {xpRequired} XP</div></div>
+                            </div>
+                            <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden mb-4 relative"><div className="h-full bg-green-500 transition-all duration-500 ease-out" style={{ width: `${progress}%` }} /><div className="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,rgba(255,255,255,1)_25%,transparent_25%,transparent_50%,rgba(255,255,255,1)_50%,rgba(255,255,255,1)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem]"></div></div>
+                            <div className="space-y-2">
+                                {localActiveEvent ? (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 animate-in slide-in-from-bottom-2">
+                                        <p className="text-amber-800 text-xs font-bold mb-2 flex items-center gap-2"><Zap size={14} /> {t('action')}</p>
+                                        <div className="flex gap-2 justify-center">
+                                            <ActionButton icon={<Droplets size={18} />} label={t('water')} isActive={localActiveEvent === 'WATER'} onClick={() => handleAction('WATER')} />
+                                            <ActionButton icon={<Bug size={18} />} label={t('pest')} isActive={localActiveEvent === 'PEST'} onClick={() => handleAction('PEST')} />
+                                            <ActionButton icon={<Shovel size={18} />} label={t('feed')} isActive={localActiveEvent === 'FERTILIZE'} onClick={() => handleAction('FERTILIZE')} />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="h-16 flex items-center justify-center text-gray-400 text-xs italic border-2 border-dashed border-gray-200 rounded-xl">{t('peaceful')}</div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="absolute bottom-2 w-full px-4 pointer-events-none flex flex-col-reverse items-center gap-1 z-30 h-12 justify-end">
+                            {logs.map((log, i) => (<div key={i} className={`text-[10px] text-center text-white/95 bg-black/50 rounded-full px-3 py-1 backdrop-blur-md animate-in fade-in slide-in-from-bottom-1 shadow-sm transition-all max-w-[90%] truncate ${i === 0 ? 'scale-100 opacity-100' : 'scale-90 opacity-60'}`}>{log}</div>))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = window.ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
