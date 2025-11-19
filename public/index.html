@@ -10,11 +10,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes bounce-slow { 0%, 100% { transform: translateY(-5%); } 50% { transform: translateY(0); } }
+        @keyframes bounce-slow { 0%, 100% { transform: translateY(-2%); } 50% { transform: translateY(0); } }
+        @keyframes sway { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg); } }
         @keyframes ping-slow { 75%, 100% { transform: scale(2); opacity: 0; } }
         @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         .animate-spin-slow { animation: spin-slow 8s linear infinite; }
-        .animate-bounce-slow { animation: bounce-slow 3s infinite; }
+        .animate-bounce-slow { animation: bounce-slow 4s ease-in-out infinite; }
+        .animate-sway { animation: sway 5s ease-in-out infinite; transform-origin: bottom center; }
         .animate-ping-slow { animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite; }
         .animate-pulse-slow { animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
@@ -35,7 +37,7 @@
         const Zap = (props) => <IconBase {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></IconBase>;
         const Shovel = (props) => <IconBase {...props}><path d="M2 22v-5l5-5 5 5-5 5z"/><path d="M9.5 14.5 16 8"/><path d="m17 2 5 5-.5.5a3.53 3.53 0 0 1-5 0s0 0 0 0a3.53 3.53 0 0 1 0-5L17 2"/></IconBase>;
         const Droplets = (props) => <IconBase {...props}><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/></IconBase>;
-        const Sparkles = (props) => <IconBase {...props}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5H5"/><path d="M3 5h2"/><path d="M5 7V3"/></IconBase>;
+        const Sparkles = (props) => <IconBase {...props}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5H5"/><path d="M3 5h2"/><path d="M5 7V3"/></IconBase>;
         const Clock = (props) => <IconBase {...props}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></IconBase>;
         const Volume2 = (props) => <IconBase {...props}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></IconBase>;
         const VolumeX = (props) => <IconBase {...props}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></IconBase>;
@@ -43,12 +45,14 @@
         const User = (props) => <IconBase {...props}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></IconBase>;
         const CloudCheck = (props) => <IconBase {...props}><path d="M12 10v6"/><path d="M9 13l3 3 3-3"/><path d="M20 16.2A4.5 4.5 0 0 0 21.4 8 5.4 5.4 0 0 0 8 8 4.6 4.6 0 0 0 4.5 12 4 4 0 0 0 6 16.2"/></IconBase>;
         const CloudOff = (props) => <IconBase {...props}><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/><line x1="2" y1="2" x2="22" y2="22"/></IconBase>;
+        const BookOpen = (props) => <IconBase {...props}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></IconBase>;
+        const Lock = (props) => <IconBase {...props}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></IconBase>;
 
         const MAX_LEVEL = 10;
         const TRANSLATIONS = {
-            en: { title: "Zen Arboretum", timeWarp: "Time Warp (600x)", realTime: "Real Time", rateDemo: "1 real sec = 10 game mins", rateNormal: "1 XP / Game Hour", status: "Current Status", level: "Level", max: "MAX", action: "Action Required!", water: "Water", pest: "Pest", feed: "Feed", peaceful: "Tree is growing peacefully...", welcome: "Welcome, {0}. Plant a seed and wait...", hourPassed: "One hour passed. The tree grew slightly naturally.", eventSoil: "The soil is dry! The tree needs water.", eventPest: "Beetles are eating the leaves!", eventPale: "The tree looks pale. It needs nutrients.", eventPrefix: "⚠️ EVENT:", resolved: "Event Resolved! Gained {0} XP.", fail: "That didn't help... The tree still needs attention!", levelUp: "🎉 LEVEL UP! Your tree is now Level {0}", maxLevel: "Your tree has reached its full potential!", langName: "EN", loginTitle: "Who is planting today?", loginPlaceholder: "Enter your name...", start: "Enter Garden", logout: "Switch User", usingServer: "Connected to server. Real-time saving active.", usingLocal: "Server unreachable. Using local storage.", selectUser: "Select User", createNew: "Create New User", back: "Back to List" },
-            'zh-CN': { title: "禅意树圃", timeWarp: "时光飞逝 (600倍)", realTime: "实时模式", rateDemo: "1现实秒 = 10游戏分", rateNormal: "1 XP / 游戏小时", status: "当前状态", level: "等级", max: "最大", action: "需要采取行动！", water: "浇水", pest: "除虫", feed: "施肥", peaceful: "树木正在宁静地生长...", welcome: "欢迎, {0}。播下一颗种子，静静等待...", hourPassed: "一小时过去了。树木自然生长了一点。", eventSoil: "土壤干了！树需要水。", eventPest: "甲虫正在吃叶子！", eventPale: "树看起来很苍白。它需要养分。", eventPrefix: "⚠️ 事件：", resolved: "事件解决！获得了 {0} XP。", fail: "那没用... 树仍然需要照料！", levelUp: "🎉 升级了！你的树现在是等级 {0}", maxLevel: "你的树已经达到了潜力的巅峰！", langName: "简", loginTitle: "今天是谁在种植？", loginPlaceholder: "输入你的名字...", start: "进入花园", logout: "切换用户", usingServer: "已连接到服务器。实时保存已激活。", usingLocal: "无法连接服务器。使用本地存储。", selectUser: "选择用户", createNew: "新建用户", back: "返回列表" },
-            'zh-TW': { title: "禪意樹圃", timeWarp: "時光飛逝 (600倍)", realTime: "實時模式", rateDemo: "1現實秒 = 10遊戲分", rateNormal: "1 XP / 遊戲小時", status: "當前狀態", level: "等級", max: "最大", action: "需要採取行動！", water: "澆水", pest: "除蟲", feed: "施肥", peaceful: "樹木正在寧靜地生長...", welcome: "歡迎, {0}。播下一顆種子，靜靜等待...", hourPassed: "一小時過去了。樹木自然生長了一點。", eventSoil: "土壤乾了！樹需要水。", eventPest: "甲蟲正在吃葉子！", eventPale: "樹看起來很蒼白。它需要養分。", eventPrefix: "⚠️ 事件：", resolved: "事件解決！獲得了 {0} XP。", fail: "那沒用... 樹仍然需要照料！", levelUp: "🎉 升級了！你的樹現在是等級 {0}", maxLevel: "你的樹已經達到了潛力的巔峰！", langName: "繁", loginTitle: "今天是用誰在種植？", loginPlaceholder: "輸入你的名字...", start: "進入花園", logout: "切換用戶", usingServer: "已連接到服務器。實時保存已激活。", usingLocal: "無法連接服務器。使用本地存儲。", selectUser: "選擇用戶", createNew: "新建用戶", back: "返回列表" }
+            en: { title: "Zen Arboretum", timeWarp: "Time Warp (600x)", realTime: "Real Time", rateDemo: "1 real sec = 10 game mins", rateNormal: "1 XP / Game Hour", status: "Current Status", level: "Level", max: "MAX", action: "Action Required!", water: "Water", pest: "Pest", feed: "Feed", peaceful: "Tree is growing peacefully...", welcome: "Welcome, {0}. Plant a seed and wait...", hourPassed: "One hour passed. The tree grew slightly naturally.", eventSoil: "The soil is dry! The tree needs water.", eventPest: "Beetles are eating the leaves!", eventPale: "The tree looks pale. It needs nutrients.", eventPrefix: "⚠️ EVENT:", resolved: "Event Resolved! Gained {0} XP.", fail: "That didn't help... The tree still needs attention!", levelUp: "🎉 LEVEL UP! Your tree is now Level {0}", maxLevel: "Your tree has reached its full potential!", langName: "EN", loginTitle: "Who is planting today?", loginPlaceholder: "Enter your name...", start: "Enter Garden", logout: "Switch User", usingServer: "Connected to server. Real-time saving active.", usingLocal: "Server unreachable. Using local storage.", selectUser: "Select User", createNew: "Create New User", back: "Back to List", collection: "Collection", locked: "Locked", unlocked: "Unlocked" },
+            'zh-CN': { title: "禅意树圃", timeWarp: "时光飞逝 (600倍)", realTime: "实时模式", rateDemo: "1现实秒 = 10游戏分", rateNormal: "1 XP / 游戏小时", status: "当前状态", level: "等级", max: "最大", action: "需要采取行动！", water: "浇水", pest: "除虫", feed: "施肥", peaceful: "树木正在宁静地生长...", welcome: "欢迎, {0}。播下一颗种子，静静等待...", hourPassed: "一小时过去了。树木自然生长了一点。", eventSoil: "土壤干了！树需要水。", eventPest: "甲虫正在吃叶子！", eventPale: "树看起来很苍白。它需要养分。", eventPrefix: "⚠️ 事件：", resolved: "事件解决！获得了 {0} XP。", fail: "那没用... 树仍然需要照料！", levelUp: "🎉 升级了！你的树现在是等级 {0}", maxLevel: "你的树已经达到了潜力的巅峰！", langName: "简", loginTitle: "今天是谁在种植？", loginPlaceholder: "输入你的名字...", start: "进入花园", logout: "切换用户", usingServer: "已连接到服务器。实时保存已激活。", usingLocal: "无法连接服务器。使用本地存储。", selectUser: "选择用户", createNew: "新建用户", back: "返回列表", collection: "图鉴", locked: "未解锁", unlocked: "已解锁" },
+            'zh-TW': { title: "禪意樹圃", timeWarp: "時光飛逝 (600倍)", realTime: "實時模式", rateDemo: "1現實秒 = 10遊戲分", rateNormal: "1 XP / 遊戲小時", status: "當前狀態", level: "等級", max: "最大", action: "需要採取行動！", water: "澆水", pest: "除蟲", feed: "施肥", peaceful: "樹木正在寧靜地生長...", welcome: "歡迎, {0}。播下一顆種子，靜靜等待...", hourPassed: "一小時過去了。樹木自然生長了一點。", eventSoil: "土壤乾了！樹需要水。", eventPest: "甲蟲正在吃葉子！", eventPale: "樹看起來很蒼白。它需要養分。", eventPrefix: "⚠️ 事件：", resolved: "事件解決！獲得了 {0} XP。", fail: "那沒用... 樹仍然需要照料！", levelUp: "🎉 升級了！你的樹現在是等級 {0}", maxLevel: "你的樹已經達到了潛力的巔峰！", langName: "繁", loginTitle: "今天是用誰在種植？", loginPlaceholder: "輸入你的名字...", start: "進入花園", logout: "切換用戶", usingServer: "已連接到服務器。實時保存已激活。", usingLocal: "無法連接服務器。使用本地存儲。", selectUser: "選擇用戶", createNew: "新建用戶", back: "返回列表", collection: "圖鑑", locked: "未解鎖", unlocked: "已解鎖" }
         };
 
         const audio = {
@@ -68,114 +72,173 @@
 
         const TreeVisual = ({ level, eventType }) => {
             const safeLevel = Number(level) || 1;
-            const trunkBaseWidth = 10; const trunkHeightFactor = 15; const foliageRadiusBase = 25; const branchThicknessFactor = 0.5;
+            const trunkBaseWidth = 14;
+            const trunkHeightFactor = 16; 
+            
             const trunkHeight = 100 + (safeLevel * trunkHeightFactor);
-            const trunkWidth = trunkBaseWidth + (safeLevel * 2);
-            const foliageSize = foliageRadiusBase + (safeLevel * 8);
-            const trunkColor = safeLevel === MAX_LEVEL ? '#4A3228' : safeLevel > 7 ? '#5D4037' : '#795548';
-            const leafColor = safeLevel === MAX_LEVEL ? '#FFD700' : safeLevel > 7 ? '#2E7D32' : safeLevel > 4 ? '#4CAF50' : '#81C784';
-            const leafHighlightColor = safeLevel === MAX_LEVEL ? '#FFF59D' : '#A5D6A7';
-            const treeTopY = 380 - trunkHeight;
+            const trunkWidth = trunkBaseWidth + (safeLevel * 2.5);
+            const treeTopY = 390 - trunkHeight; // Adjusted base Y
+            const centerX = 150;
+
+            // --- COLORS ---
+            const isMax = safeLevel === MAX_LEVEL;
+            const trunkColorMain = isMax ? '#5D4037' : '#795548';
+            const trunkColorDark = '#3E2723';
+            
+            // Foliage colors (Base, Mid, Highlight)
+            const fBase = isMax ? '#FBC02D' : (safeLevel > 7 ? '#1B5E20' : '#2E7D32'); 
+            const fMid = isMax ? '#FFEE58' : (safeLevel > 7 ? '#2E7D32' : '#4CAF50');
+            const fHigh = isMax ? '#FFF9C4' : (safeLevel > 7 ? '#66BB6A' : '#81C784');
+
+            // Helper component for 3D "Blob" leaves
+            const LeafBlob = ({ cx, cy, r, delay=0 }) => (
+                <g className="animate-bounce-slow" style={{animationDelay: `${delay}ms`}}>
+                     {/* Shadow cast by this blob */}
+                    <circle cx={cx} cy={cy+r*0.15} r={r*0.95} fill={trunkColorDark} opacity="0.2" filter="blur(2px)" />
+                    {/* Main Blob with 3D Gradient */}
+                    <circle cx={cx} cy={cy} r={r} fill={`url(#foliageGradient-${safeLevel})`} />
+                    {/* Specular Highlight for extra 3D pop */}
+                    <ellipse cx={cx - r*0.3} cy={cy - r*0.3} rx={r*0.35} ry={r*0.2} fill="white" opacity="0.15" transform={`rotate(-45 ${cx} ${cy})`} />
+                </g>
+            );
 
             if (safeLevel === 1) {
                 return (
-                    <svg viewBox="0 0 200 200" className="w-64 h-64 drop-shadow-xl transition-all duration-1000">
-                        <circle cx="100" cy="170" r="60" fill="#8D6E63" opacity="0.3" />
-                        <path d="M100 160 Q95 140 85 130" stroke="#81C784" strokeWidth="4" fill="none" strokeLinecap="round" />
-                        <path d="M100 160 Q105 140 115 130" stroke="#81C784" strokeWidth="4" fill="none" strokeLinecap="round" />
-                        <circle cx="85" cy="130" r="5" fill="#66BB6A" />
-                        <circle cx="115" cy="130" r="5" fill="#66BB6A" />
+                    <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-2xl transition-all duration-1000">
+                         <defs>
+                            <radialGradient id="seedGradient" cx="30%" cy="30%">
+                                <stop offset="0%" stopColor="#A5D6A7" />
+                                <stop offset="100%" stopColor="#2E7D32" />
+                            </radialGradient>
+                         </defs>
+                         {/* Ground mound */}
+                        <ellipse cx="100" cy="170" rx="50" ry="15" fill="#33691E" opacity="0.3" />
+                        
+                        {/* Sprout */}
+                        <g className="animate-sway">
+                            <path d="M100 170 Q95 150 100 130" stroke="#558B2F" strokeWidth="4" fill="none" strokeLinecap="round" />
+                            <path d="M100 130 Q80 110 65 115" stroke="#66BB6A" strokeWidth="0" fill="none" /> {/* Guide */}
+                            
+                            {/* Left Leaf 3D */}
+                            <path d="M100 135 Q80 130 75 115 Q85 100 100 135" fill="url(#seedGradient)" filter="drop-shadow(1px 2px 2px rgba(0,0,0,0.2))" />
+                            
+                            {/* Right Leaf 3D */}
+                            <path d="M100 135 Q120 130 125 115 Q115 100 100 135" fill="url(#seedGradient)" filter="drop-shadow(-1px 2px 2px rgba(0,0,0,0.2))" />
+                        </g>
                     </svg>
                 );
             }
+
             return (
-                <svg viewBox="0 -50 300 450" className={`w-full h-full transition-all duration-1000 ${eventType ? 'animate-pulse' : ''}`}>
+                <svg viewBox="0 -50 300 500" className={`w-full h-full transition-all duration-1000 ${eventType ? 'animate-pulse' : ''}`}>
                     <defs>
-                        {/* Trunk Gradient */}
-                        <linearGradient id="trunkGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#5A3E2D" />
-                            <stop offset="50%" stopColor={trunkColor} />
-                            <stop offset="100%" stopColor="#5A3E2D" />
+                        <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+                            <feOffset dx="0" dy="5" result="offsetblur"/>
+                            <feComponentTransfer>
+                                <feFuncA type="linear" slope="0.3"/>
+                            </feComponentTransfer>
+                            <feMerge> 
+                                <feMergeNode/>
+                                <feMergeNode in="SourceGraphic"/> 
+                            </feMerge>
+                        </filter>
+
+                        {/* 3D Cylindrical Trunk Gradient */}
+                        <linearGradient id="trunkGradient3D" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#3E2723" />
+                            <stop offset="25%" stopColor="#4E342E" />
+                            <stop offset="40%" stopColor="#6D4C41" /> {/* Highlight */}
+                            <stop offset="65%" stopColor={trunkColorMain} />
+                            <stop offset="90%" stopColor="#3E2723" />
+                            <stop offset="100%" stopColor="#281815" />
                         </linearGradient>
 
-                        {/* Leaf Gradient */}
-                        <radialGradient id="leafGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-                            <stop offset="0%" stopColor={leafHighlightColor} />
-                            <stop offset="100%" stopColor={leafColor} />
+                        {/* 3D Spherical Foliage Gradient */}
+                        <radialGradient id={`foliageGradient-${safeLevel}`} cx="35%" cy="35%" r="65%">
+                            <stop offset="0%" stopColor={fHigh} />
+                            <stop offset="50%" stopColor={fMid} />
+                            <stop offset="100%" stopColor={fBase} />
                         </radialGradient>
-                        <radialGradient id="leafGradient2" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-                            <stop offset="0%" stopColor={leafHighlightColor} stopOpacity="0.8" />
-                            <stop offset="100%" stopColor={leafColor} stopOpacity="0.9" />
-                        </radialGradient>
-
-                        {/* Max Level Glow Filter */}
-                        {safeLevel === MAX_LEVEL && (<filter id="glow"><feGaussianBlur stdDeviation="6" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>)}
-
-                        {/* Ground Gradient */}
-                        <radialGradient id="groundGradient" cx="50%" cy="0%" r="100%" fx="50%" fy="0%">
-                            <stop offset="0%" stopColor="#6CCF56" />
-                            <stop offset="100%" stopColor="#4CAF50" />
-                        </radialGradient>
+                        
+                        {/* Max Level Glow */}
+                         {isMax && (<filter id="glow"><feGaussianBlur stdDeviation="4" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>)}
                     </defs>
 
-                    {/* Ground Shadow */}
-                    <ellipse cx="150" cy="380" rx={60 + safeLevel * 5} ry={10} fill="#3E2723" opacity="0.2" />
+                    {/* Ground Plane (Perspective) */}
+                    <ellipse cx={centerX} cy="390" rx={80 + safeLevel * 6} ry={20} fill="#1B5E20" opacity="0.5" filter="blur(5px)" />
+                    <ellipse cx={centerX} cy="390" rx={40 + safeLevel * 3} ry={10} fill="#000" opacity="0.2" filter="blur(3px)" />
 
-                    {/* Grass Ground Plane */}
-                    <path d={`M0 380 
-                               Q75 370 150 380 
-                               Q225 390 300 380 
-                               L300 450 L0 450 Z`} 
-                          fill="url(#groundGradient)" />
+                    <g className="animate-sway">
+                        {/* Roots (3D) */}
+                        {safeLevel >= 4 && (
+                            <path d={`M${centerX - trunkWidth/2 + 5} 390 Q${centerX - 30 - safeLevel} 400 ${centerX - 50 - safeLevel*2} 395`} stroke="url(#trunkGradient3D)" strokeWidth={trunkWidth * 0.4} fill="none" strokeLinecap="round" />
+                        )}
+                         {safeLevel >= 5 && (
+                            <path d={`M${centerX + trunkWidth/2 - 5} 390 Q${centerX + 30 + safeLevel} 400 ${centerX + 50 + safeLevel*2} 395`} stroke="url(#trunkGradient3D)" strokeWidth={trunkWidth * 0.4} fill="none" strokeLinecap="round" />
+                        )}
 
-                    {/* Trunk */}
-                    <path d={`M${150 - trunkWidth/2} 380 
-                               Q150 ${380 - trunkHeight/2} 
-                               ${150 - trunkWidth/2 + (safeLevel * 0.5)} ${treeTopY}`} 
-                          fill="url(#trunkGradient)" stroke="url(#trunkGradient)" strokeWidth={trunkWidth} strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d={`M${150 + trunkWidth/2} 380 
-                               Q150 ${380 - trunkHeight/2} 
-                               ${150 + trunkWidth/2 - (safeLevel * 0.5)} ${treeTopY}`} 
-                          fill="url(#trunkGradient)" stroke="url(#trunkGradient)" strokeWidth={trunkWidth} strokeLinecap="round" strokeLinejoin="round"/>
-                    {/* Trunk base */}
-                    <rect x={150 - trunkWidth/2} y={treeTopY} width={trunkWidth} height={380 - treeTopY} fill="url(#trunkGradient)" />
+                        {/* Trunk - Cylinder Simulation */}
+                        {/* We draw the main shaft, then the top/bottom caps to make it look solid */}
+                        <path d={`M${centerX - trunkWidth/2} 390 
+                                  L${centerX + trunkWidth/2} 390
+                                  L${centerX + trunkWidth/2 - (safeLevel * 0.8)} ${treeTopY}
+                                  L${centerX - trunkWidth/2 + (safeLevel * 0.8)} ${treeTopY}
+                                  Z`} 
+                              fill="url(#trunkGradient3D)" />
+                        
+                        {/* Bottom Cap (Curve to match ground perspective) */}
+                        <ellipse cx={centerX} cy="390" rx={trunkWidth/2} ry={trunkWidth/8} fill="url(#trunkGradient3D)" />
+                        
+                        {/* Branches (Behind Foliage) */}
+                        {safeLevel >= 3 && (
+                             <path d={`M${centerX} ${treeTopY + 40} Q${centerX - 40} ${treeTopY} ${centerX - 60 - safeLevel*2} ${treeTopY - 20}`} stroke="url(#trunkGradient3D)" strokeWidth={trunkWidth * 0.3} fill="none" strokeLinecap="round" />
+                        )}
+                        {safeLevel >= 3 && (
+                             <path d={`M${centerX} ${treeTopY + 30} Q${centerX + 40} ${treeTopY - 10} ${centerX + 60 + safeLevel*2} ${treeTopY - 30}`} stroke="url(#trunkGradient3D)" strokeWidth={trunkWidth * 0.3} fill="none" strokeLinecap="round" />
+                        )}
 
+                        {/* Volumetric Foliage Clusters */}
+                        <g filter={isMax ? "url(#glow)" : "url(#softShadow)"}>
+                            {/* Level 2+ */}
+                            {safeLevel >= 2 && <LeafBlob cx={centerX} cy={treeTopY - 10} r={45 + safeLevel*2} delay={0} />}
+                            
+                            {/* Level 4+ Sides */}
+                            {safeLevel >= 4 && (
+                                <>
+                                <LeafBlob cx={centerX - 40 - safeLevel} cy={treeTopY + 20} r={35 + safeLevel} delay={200} />
+                                <LeafBlob cx={centerX + 40 + safeLevel} cy={treeTopY + 15} r={35 + safeLevel} delay={400} />
+                                </>
+                            )}
+                            
+                             {/* Level 6+ Top & Depth */}
+                            {safeLevel >= 6 && (
+                                <>
+                                <LeafBlob cx={centerX - 20} cy={treeTopY - 40} r={40 + safeLevel} delay={600} />
+                                <LeafBlob cx={centerX + 25} cy={treeTopY - 35} r={38 + safeLevel} delay={800} />
+                                </>
+                            )}
 
-                    {/* Roots */}
-                    {safeLevel >= 4 && (
-                        <g>
-                            <path d={`M${150 - trunkWidth/2 + 5} 380 Q${130 - (safeLevel * 1)} 390 ${110 - (safeLevel * 2)} 380`} stroke={trunkColor} strokeWidth={trunkWidth * 0.3} fill="none" strokeLinecap="round" opacity="0.7" />
-                            <path d={`M${150 + trunkWidth/2 - 5} 380 Q${170 + (safeLevel * 1)} 390 ${190 + (safeLevel * 2)} 380`} stroke={trunkColor} strokeWidth={trunkWidth * 0.3} fill="none" strokeLinecap="round" opacity="0.7" />
+                             {/* Level 8+ Fillers */}
+                            {safeLevel >= 8 && (
+                                <>
+                                <LeafBlob cx={centerX} cy={treeTopY + 10} r={35} delay={1000} />
+                                <LeafBlob cx={centerX - 50} cy={treeTopY - 20} r={25} delay={1200} />
+                                </>
+                            )}
+                            
+                            {/* Fruits / Decorations */}
+                            {safeLevel >= 5 && safeLevel < MAX_LEVEL && (
+                                <>
+                                <circle cx={centerX - 20} cy={treeTopY} r={5} fill="#E91E63" className="animate-ping-slow" />
+                                <circle cx={centerX + 30} cy={treeTopY + 10} r={6} fill="#E91E63" className="animate-ping-slow" style={{animationDelay: '1s'}} />
+                                <circle cx={centerX + 10} cy={treeTopY - 30} r={5} fill="#E91E63" className="animate-ping-slow" style={{animationDelay: '2s'}} />
+                                </>
+                            )}
                         </g>
-                    )}
-
-
-                    {/* Branches */}
-                    {safeLevel >= 2 && (<><path d={`M150 ${treeTopY + 30} Q ${130 - (safeLevel * 2)} ${treeTopY - 20} ${100 - (safeLevel * 3)} ${treeTopY - 50}`} stroke={trunkColor} strokeWidth={trunkWidth * branchThicknessFactor} fill="none" strokeLinecap="round"/><path d={`M150 ${treeTopY + 30} Q ${170 + (safeLevel * 2)} ${treeTopY - 20} ${200 + (safeLevel * 3)} ${treeTopY - 50}`} stroke={trunkColor} strokeWidth={trunkWidth * branchThicknessFactor} fill="none" strokeLinecap="round"/></>)}
-                    {safeLevel >= 4 && (<><path d={`M150 ${treeTopY + 50} Q ${120 - (safeLevel * 1)} ${treeTopY + 20} ${80 - (safeLevel * 2)} ${treeTopY}`} stroke={trunkColor} strokeWidth={trunkWidth * branchThicknessFactor * 0.7} fill="none" strokeLinecap="round" opacity="0.8" /><path d={`M150 ${treeTopY + 50} Q ${180 + (safeLevel * 1)} ${treeTopY + 20} ${220 + (safeLevel * 2)} ${treeTopY}`} stroke={trunkColor} strokeWidth={trunkWidth * branchThicknessFactor * 0.7} fill="none" strokeLinecap="round" opacity="0.8" /></>)}
-
-
-                    {/* Foliage */}
-                    <g className="animate-bounce-slow" filter={safeLevel === MAX_LEVEL ? "url(#glow)" : ""}>
-                        {/* Main foliage layers */}
-                        <circle cx="150" cy={treeTopY - 10} r={foliageSize} fill="url(#leafGradient)" opacity="0.9" />
-                        <circle cx="120" cy={treeTopY + 5} r={foliageSize * 0.8} fill="url(#leafGradient2)" opacity="0.85" />
-                        <circle cx="180" cy={treeTopY + 5} r={foliageSize * 0.8} fill="url(#leafGradient2)" opacity="0.85" />
-                        {safeLevel >= 3 && (<circle cx="150" cy={treeTopY - foliageSize * 0.7} r={foliageSize * 0.6} fill="url(#leafGradient)" opacity="0.9" />)}
-                        {safeLevel >= 5 && (<><circle cx="100" cy={treeTopY + 20} r={foliageSize * 0.6} fill="url(#leafGradient2)" opacity="0.8" /><circle cx="200" cy={treeTopY + 20} r={foliageSize * 0.6} fill="url(#leafGradient2)" opacity="0.8" /></>)}
-
-                        {/* Blossoms/Fruits */}
-                        {safeLevel >= 6 && safeLevel < MAX_LEVEL && (<>
-                            <circle cx="140" cy={treeTopY + 20} r="6" fill="#E91E63" />
-                            <circle cx="160" cy={treeTopY - 10} r="6" fill="#E91E63" />
-                            <circle cx="120" cy={treeTopY + 30} r="6" fill="#E91E63" />
-                            <circle cx="185" cy={treeTopY + 25} r="6" fill="#E91E63" />
-                            <circle cx="110" cy={treeTopY - 15} r="6" fill="#E91E63" />
-                        </>)}
-
-                        {/* Max Level Orb/Aura */}
-                        {safeLevel === MAX_LEVEL && (<><circle cx="140" cy={treeTopY} r="8" fill="#FFFFFF" className="animate-ping-slow" /><circle cx="160" cy={treeTopY - 20} r="5" fill="#FFFFFF" className="animate-ping-slow delay-100" /><circle cx="150" cy={treeTopY} r="40" stroke="#FFD700" strokeWidth="2" fill="none" className="animate-spin-slow" strokeDasharray="10,5" /></>)}
                     </g>
+
+                    {/* Events Overlay */}
                     {eventType === 'WATER' && (<g transform="translate(180, 250)"><CloudRain size={48} color="#4FC3F7" className="animate-bounce" /></g>)}
                     {eventType === 'PEST' && (<g transform="translate(120, 280)"><Bug size={40} color="#E53935" className="animate-pulse" /></g>)}
                     {eventType === 'FERTILIZE' && (<g transform="translate(150, 350)"><Sparkles size={40} color="#FFB74D" className="animate-spin-slow" /></g>)}
@@ -188,6 +251,56 @@
             return (
                 <button onClick={handleClick} disabled={!isActive} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-lg transition-all transform hover:scale-105 active:scale-95 ${isActive ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 hover:bg-blue-600' : 'bg-white border border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 cursor-not-allowed'}`}>{icon}<span className="text-[10px] font-bold uppercase">{label}</span></button>
             )
+        }
+
+        const CollectionModal = ({ currentLevel, onClose, t }) => {
+            const levels = Array.from({length: MAX_LEVEL}, (_, i) => i + 1);
+            
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white/95 w-full max-w-4xl h-[80vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+                            <h2 className="text-2xl font-bold text-green-800 flex items-center gap-2">
+                                <BookOpen className="text-green-600" /> {t('collection')}
+                            </h2>
+                            <button onClick={() => { audio.playClick(); onClose(); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                {levels.map((lvl) => {
+                                    const isUnlocked = lvl <= currentLevel;
+                                    return (
+                                        <div key={lvl} className={`aspect-[3/4] rounded-2xl border-2 flex flex-col items-center justify-between p-4 transition-all duration-500 ${isUnlocked ? 'bg-white border-green-100 shadow-sm hover:shadow-md hover:border-green-300 scale-100' : 'bg-gray-100 border-gray-200 opacity-70'}`}>
+                                            <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">
+                                                {t('level')} {lvl}
+                                            </div>
+                                            
+                                            <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden rounded-xl">
+                                                {isUnlocked ? (
+                                                    <div className="w-full h-full transform scale-90">
+                                                        <TreeVisual level={lvl} eventType={null} />
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-gray-300">
+                                                        <Lock size={48} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            
+                                            <div className={`mt-4 text-sm font-semibold px-3 py-1 rounded-full text-center w-full ${isUnlocked ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                                                {isUnlocked ? (lvl === MAX_LEVEL ? t('max') : t('unlocked')) : t('locked')}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
         }
 
         const LoginScreen = ({ onLogin, t, existingUsers = [] }) => {
@@ -244,6 +357,7 @@
 
             // OPTIMISTIC UI STATE: To prevent double clicking
             const [localActiveEvent, setLocalActiveEvent] = useState(null);
+            const [showCollection, setShowCollection] = useState(false);
 
             const xpRequired = Math.max(1, level * 100);
             const progress = Math.min(100, (xp / xpRequired) * 100);
@@ -368,6 +482,11 @@
                 audio.setMuted(newState); 
                 if (!newState) audio.playClick(); 
             };
+
+            const toggleCollection = () => {
+                audio.playClick();
+                setShowCollection(prev => !prev);
+            };
             
             const cycleLang = () => {
                 audio.playClick();
@@ -386,11 +505,16 @@
 
             return (
                 <div className={`min-h-screen flex flex-col items-center justify-center font-sans transition-colors duration-1000 ${isDay ? 'bg-gradient-to-b from-blue-200 to-blue-100' : 'bg-gradient-to-b from-indigo-900 to-slate-800 text-white'} overflow-hidden`}>
+                    
+                    {/* Collection Modal */}
+                    {showCollection && <CollectionModal currentLevel={level} onClose={toggleCollection} t={t} />}
+
                     <div className="absolute top-4 right-4 flex flex-col gap-2 z-30 items-end">
                         <div className="flex gap-2">
                              <div title={serverStatus === 'connected' ? "Online" : "Offline"} className={`flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all ${serverStatus === 'connected' ? 'bg-white text-green-500' : 'bg-red-100 text-red-500'}`}>{serverStatus === 'connected' ? <CloudCheck size={20} /> : <CloudOff size={20} />}</div>
                              <button onClick={cycleLang} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-indigo-600 hover:bg-gray-50 font-bold text-xs">{t('langName')}</button>
                             <button onClick={handleLogout} title={t('logout')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-red-500 hover:bg-gray-50"><User size={20} /></button>
+                            <button onClick={toggleCollection} title={t('collection')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-green-600 hover:bg-gray-50"><BookOpen size={20} /></button>
                             <button onClick={toggleMute} className={`flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all ${!isMuted ? 'bg-white text-blue-500' : 'bg-gray-200 text-gray-500'}`}>{isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>
                             <button onClick={toggleDemoState} className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg text-xs font-bold transition-all ${isDemoMode ? 'bg-purple-600 text-white animate-pulse' : 'bg-white/80 text-gray-600 border border-white/50'}`}><Clock size={14} /> {isDemoMode ? t('timeWarp').split('(')[0] : t('realTime')}</button>
                         </div>
