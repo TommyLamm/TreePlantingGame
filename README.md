@@ -3,8 +3,22 @@ A casual mini game
 
 Multi-platform real-time synchronization supported
 
+How to run the game
 
-Requires node.js
+Step 1:
+Install node.js
+
+Step 2:
+git clone https://github.com/TommyLamm/TreePlantingGame
+
+Step 3:
+npm install
+
+Step 4:
+node server.js
+
+Step5:
+Open a browser and enter 127.0.0.1:3000
 
 <img width="994" height="1756" alt="image" src="https://github.com/user-attachments/assets/b5ed2719-7eab-4707-9c1c-0c88ffd3e84b" />
 <img width="964" height="1626" alt="image" src="https://github.com/user-attachments/assets/07f3a761-b82a-44b6-80cd-79db2ad0a039" />
