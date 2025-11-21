@@ -17,7 +17,7 @@ npm install
 Step 4:
 node server.js
 
-Step5:
+Step 5:
 Open a browser and enter 127.0.0.1:3000
 
 <img width="994" height="1756" alt="image" src="https://github.com/user-attachments/assets/b5ed2719-7eab-4707-9c1c-0c88ffd3e84b" />
