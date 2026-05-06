@@ -338,7 +338,7 @@
         }
 
         function App() {
-            const [currentUser, setCurrentUser] = useState(null);
+            const [currentUser, setCurrentUser] = useState(() => localStorage.getItem('zenUser') || null);
             const [isSaving, setIsSaving] = useState(false);
             const [serverStatus, setServerStatus] = useState('unknown'); 
             const [existingUsers, setExistingUsers] = useState([]);
@@ -413,7 +413,7 @@
                         }
                     } catch (e) { setServerStatus('offline'); }
                 };
-                const interval = setInterval(poll, 1000);
+                const interval = setInterval(poll, 5000);
                 return () => clearInterval(interval);
             }, [currentUser, t]);
 
@@ -465,12 +465,14 @@
                 }
 
                 setCurrentUser(name);
+                localStorage.setItem('zenUser', name);
                 audio.playClick();
             };
 
             const handleLogout = () => {
                 audio.playClick();
                 setCurrentUser(null);
+                localStorage.removeItem('zenUser');
                 setExistingUsers([]); // Clear to force re-fetch next render
                 fetch('/api/users').then(res => res.json()).then(users => setExistingUsers(users));
             };
