@@ -18,19 +18,27 @@ Make sure you have **Node.js** installed (LTS version recommended).
 git clone https://github.com/TommyLamm/TreePlantingGame
 ```
 
-### **Step 3: Install dependencies**
+### **Step 3: Install server dependencies**
 
 ```bash
 npm install
 ```
 
-### **Step 4: Start the server**
+### **Step 4: Build the client**
+
+```bash
+cd client
+npm install
+npm run build
+```
+
+### **Step 5: Start the server**
 
 ```bash
 node server.js
 ```
 
-### **Step 5: Open the game**
+### **Step 6: Open the game**
 
 Open your browser and visit:
 
