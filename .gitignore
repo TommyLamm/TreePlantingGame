@@ -60,3 +60,4 @@ pids
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+.deepseek/instructions.md

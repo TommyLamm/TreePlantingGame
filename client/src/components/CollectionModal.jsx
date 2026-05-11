@@ -32,7 +32,7 @@ export const CollectionModal = ({ currentLevel, onClose, t }) => {
                                     <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden rounded-xl">
                                         {isUnlocked ? (
                                             <div className="w-full h-full transform scale-90">
-                                                <TreeVisual level={lvl} eventType={null} />
+                                                <TreeVisual level={lvl} eventType={null} isStatic={true} />
                                             </div>
                                         ) : (
                                             <div className="text-gray-300">

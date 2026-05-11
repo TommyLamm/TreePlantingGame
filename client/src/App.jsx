@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { MAX_LEVEL } from './constants';
 import { audio } from './utils/audio';
 import { createTranslator } from './utils/i18n';
-import { CloudCheck, CloudOff, User, BookOpen, VolumeX, Volume2, Clock, Sun, Moon, Zap, Droplets, Bug, Shovel } from './components/Icons';
+import { CloudCheck, CloudOff, User, BookOpen, VolumeX, Volume2, Clock, Sun, Moon, Zap, Droplets, Bug, Shovel, Coins, ShoppingCart } from './components/Icons';
 import { TreeVisual } from './components/TreeVisual';
 import { ActionButton } from './components/ActionButton';
 import { CollectionModal } from './components/CollectionModal';
+import { StoreModal } from './components/StoreModal';
+import { ProfileModal } from './components/ProfileModal';
 import { LoginScreen } from './components/LoginScreen';
 import { Particles } from './components/Particles';
 
@@ -16,6 +18,12 @@ export default function App() {
 
     const [xp, setXp] = useState(0);
     const [level, setLevel] = useState(1);
+    const [coins, setCoins] = useState(0);
+    const [inventory, setInventory] = useState(null);
+    const [profileData, setProfileData] = useState(null);
+    const [joinDate, setJoinDate] = useState(null);
+    const [playTimeMs, setPlayTimeMs] = useState(0);
+    const [interactions, setInteractions] = useState(0);
     const [activeEvent, setActiveEvent] = useState(null);
     const [isDemoMode, setIsDemoMode] = useState(false);
     const [isMuted, setIsMuted] = useState(() => {
@@ -29,6 +37,8 @@ export default function App() {
     // OPTIMISTIC UI STATE: To prevent double clicking
     const [localActiveEvent, setLocalActiveEvent] = useState(null);
     const [showCollection, setShowCollection] = useState(false);
+    const [showStore, setShowStore] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
     
     // VISUAL EFFECTS STATE
     const [actionBursts, setActionBursts] = useState([]);
@@ -72,6 +82,12 @@ export default function App() {
                 
                 setXp(Number(data.xp));
                 setLevel(Number(data.level));
+                setCoins(Number(data.coins));
+                setInventory(data.inventory);
+                setJoinDate(data.joinDate);
+                setPlayTimeMs(data.playTime);
+                setInteractions(data.interactionCount);
+                setProfileData(data.profile);
                 // Only update active event if we aren't locally hiding it for optimistic UI
                 setActiveEvent(data.activeEvent);
                 setIsDemoMode(data.isDemoMode);
@@ -158,6 +174,22 @@ export default function App() {
         setCurrentUser(null);
         localStorage.removeItem('zenUser');
         setExistingUsers([]); // Clear to force re-fetch next render
+        
+        // Reset all states
+        setXp(0);
+        setLevel(1);
+        setCoins(0);
+        setInventory(null);
+        setProfileData(null);
+        setJoinDate(null);
+        setPlayTimeMs(0);
+        setInteractions(0);
+        setActiveEvent(null);
+        setLocalActiveEvent(null);
+        setShowProfile(false);
+        setShowStore(false);
+        setShowCollection(false);
+
         fetch('/api/users').then(res => res.json()).then(users => setExistingUsers(users));
     };
 
@@ -187,6 +219,51 @@ export default function App() {
     const addLog = (msg) => setLogs(prev => [msg, ...prev].slice(0, 2));
     const isDay = new Date().getHours() > 6 && new Date().getHours() < 18;
 
+    const handleBuy = async (itemId, price, type) => {
+        try {
+            const res = await fetch('/api/store/buy', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: currentUser, itemId, price, type })
+            });
+            if (!res.ok) {
+                addLog(t('notEnoughCoins'));
+                return;
+            }
+            const data = await res.json();
+            setCoins(Number(data.coins));
+            setInventory(data.inventory);
+            audio.playLevelUp(); // Just a positive sound
+        } catch (e) { console.error(e); }
+    };
+
+    const handleEquip = async (itemId) => {
+        try {
+            const res = await fetch('/api/store/equip', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: currentUser, itemId })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setInventory(data.inventory);
+                audio.playClick();
+            }
+        } catch (e) { console.error(e); }
+    };
+
+    const handleProfileSave = async (updatedProfile) => {
+        try {
+            const res = await fetch('/api/profile/update', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: currentUser, profile: updatedProfile })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setProfileData(data.profile);
+                addLog(t('resolved', 0).replace('0 XP.', 'Profile Saved.')); // Reusing log for simplicity or just a simple log
+            }
+        } catch (e) { console.error(e); }
+    };
+
     if (!currentUser) return <LoginScreen onLogin={handleLogin} t={t} existingUsers={existingUsers} />;
 
     return (
@@ -196,12 +273,39 @@ export default function App() {
 
             {/* Collection Modal */}
             {showCollection && <CollectionModal currentLevel={level} onClose={toggleCollection} t={t} />}
+            
+            {/* Store Modal */}
+            {showStore && <StoreModal userCoins={coins} inventory={inventory} onBuy={handleBuy} onEquip={handleEquip} onClose={() => { audio.playClick(); setShowStore(false); }} t={t} />}
+
+            {/* Profile Modal */}
+            {showProfile && (
+                <ProfileModal 
+                    username={currentUser} 
+                    joinDate={joinDate} 
+                    playTimeMs={playTimeMs} 
+                    interactions={interactions} 
+                    profileData={profileData} 
+                    onSave={handleProfileSave} 
+                    onClose={() => { audio.playClick(); setShowProfile(false); }} 
+                    onLogout={handleLogout}
+                    t={t} 
+                />
+            )}
 
             <div className="absolute top-4 right-4 flex flex-col gap-2 z-30 items-end">
                 <div className="flex gap-2">
                      <div title={serverStatus === 'connected' ? "Online" : "Offline"} className={`flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all ${serverStatus === 'connected' ? 'bg-white text-green-500' : 'bg-red-100 text-red-500'}`}>{serverStatus === 'connected' ? <CloudCheck size={20} /> : <CloudOff size={20} />}</div>
+                     
+                     <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-lg font-bold text-sm text-yellow-600 border border-yellow-100">
+                         <Coins size={16} />
+                         <span>{Math.floor(coins)}</span>
+                     </div>
+
                      <button onClick={cycleLang} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-indigo-600 hover:bg-gray-50 font-bold text-xs">{t('langName')}</button>
-                    <button onClick={handleLogout} title={t('logout')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-red-500 hover:bg-gray-50"><User size={20} /></button>
+                    <button onClick={() => { audio.playClick(); setShowProfile(true); }} title={t('profile')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-blue-500 hover:bg-gray-50 overflow-hidden">
+                        {profileData?.avatar ? <img src={profileData.avatar} alt="User" className="w-full h-full object-cover" /> : <User size={20} />}
+                    </button>
+                    <button onClick={() => { audio.playClick(); setShowStore(true); }} title={t('store')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-amber-500 hover:bg-gray-50"><ShoppingCart size={20} /></button>
                     <button onClick={toggleCollection} title={t('collection')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-green-600 hover:bg-gray-50"><BookOpen size={20} /></button>
                     <button onClick={toggleMute} className={`flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all ${!isMuted ? 'bg-white text-blue-500' : 'bg-gray-200 text-gray-500'}`}>{isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>
                     <button onClick={toggleDemoState} className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg text-xs font-bold transition-all ${isDemoMode ? 'bg-purple-600 text-white animate-pulse' : 'bg-white/80 text-gray-600 border border-white/50'}`}><Clock size={14} /> {isDemoMode ? t('timeWarp').split('(')[0] : t('realTime')}</button>
@@ -223,7 +327,7 @@ export default function App() {
                 ))}
 
                 <div className="flex-1 w-full min-h-0 relative z-10 mb-4">
-                    <TreeVisual level={level} eventType={activeEvent} />
+                    <TreeVisual level={level} eventType={activeEvent} skin={inventory?.treeSkin} />
                 </div>
 
                 <div className="w-full flex-shrink-0 bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-4 z-20 text-gray-800 border border-white/50">

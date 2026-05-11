@@ -84,16 +84,30 @@ function updateUserState(user) {
     if (!user.lastEventTime) user.lastEventTime = now;
     if (typeof user.isDemoMode === 'undefined') user.isDemoMode = false;
     if (!user.activeEvent) user.activeEvent = null;
+    if (typeof user.coins === 'undefined') user.coins = 0;
+    if (!user.inventory) user.inventory = { xpBuff: false, autoWater: false, treeSkin: 'default', unlockedSkins: ['default'] };
+    if (!user.joinDate) user.joinDate = now;
+    if (typeof user.playTime === 'undefined') user.playTime = 0;
+    if (typeof user.interactionCount === 'undefined') user.interactionCount = 0;
+    if (!user.profile) user.profile = { avatar: null, birthday: '', signature: '' };
 
     // 2. Calculate Time Delta
     const dt = now - user.lastTick;
     const speedMultiplier = user.isDemoMode ? 600 : 1;
     
-    // 3. XP Calculation
-    const xpGained = (dt / 3600000) * speedMultiplier * 1; // 1 XP per Hour
+    // Accumulate actual play time (if tick is within 15 seconds, assume active session)
+    if (dt > 0 && dt <= 15000) {
+        user.playTime += dt;
+    }
     
-    if (user.level < 100) {
+    // 3. XP & Coin Calculation
+    const xpMultiplier = user.inventory.xpBuff ? 1.5 : 1;
+    const xpGained = (dt / 3600000) * speedMultiplier * 1 * xpMultiplier; // 1 XP per Hour
+    const coinsGained = (dt / 3600000) * speedMultiplier * 50; // 50 coins per Hour
+    
+    if (user.level < 30) {
         user.xp += xpGained;
+        user.coins += coinsGained;
         const req = user.level * 100;
         if (user.xp >= req) {
             user.xp -= req;
@@ -105,7 +119,7 @@ function updateUserState(user) {
     user.lastTick = now;
 
     // 4. Random Event Generation
-    if (!user.activeEvent && user.level < 100) {
+    if (!user.activeEvent && user.level < 30) {
         const timeSinceEvent = now - user.lastEventTime;
         const eventIntervalMs = (10 * 60000) / speedMultiplier; // 10 mins
 
@@ -113,6 +127,28 @@ function updateUserState(user) {
             const events = ['WATER', 'PEST', 'FERTILIZE'];
             user.activeEvent = events[Math.floor(Math.random() * events.length)];
             console.log(`[Game Logic] Spawned ${user.activeEvent}`);
+        }
+    } else if (user.activeEvent === 'WATER' && user.inventory?.autoWater) {
+        const timeSinceEventSpawn = now - user.lastEventTime;
+        const resolveTimeMs = 5000 / speedMultiplier;
+        if (timeSinceEventSpawn >= resolveTimeMs) {
+            user.activeEvent = null;
+            user.lastEventResolved = true;
+            const xpMultiplier = user.inventory.xpBuff ? 1.5 : 1;
+            const reward = (Math.floor(Math.random() * (15 - 3 + 1)) + 3) * xpMultiplier;
+            const coinReward = Math.floor(Math.random() * (30 - 10 + 1)) + 10;
+            const reqXp = user.level * 100;
+            user.xp += reward;
+            user.coins += coinReward;
+            user.interactionCount++; // Increment interaction for auto-resolve too
+            if (user.xp >= reqXp && user.level < 30) {
+                user.xp -= reqXp;
+                user.level++;
+                user.justLeveledUp = true;
+            }
+            user.lastReward = reward;
+            user.lastEventTime = now;
+            console.log(`[Game Logic] Auto-resolved WATER`);
         }
     }
     
@@ -132,7 +168,17 @@ app.post('/api/heartbeat', (req, res) => {
 
     try {
         if (!dbCache[username]) {
-            dbCache[username] = { xp: 0, level: 1, activeEvent: null, isDemoMode: false, lastTick: Date.now(), lastEventTime: Date.now() };
+            const isAdm = username === 'Admin';
+            dbCache[username] = { 
+                xp: 0, 
+                level: isAdm ? 30 : 1, 
+                activeEvent: null, 
+                isDemoMode: false, 
+                lastTick: Date.now(), 
+                lastEventTime: Date.now(),
+                coins: isAdm ? 10000 : 0,
+                inventory: { xpBuff: false, autoWater: false, treeSkin: 'default', unlockedSkins: ['default'] }
+            };
             isDirty = true;
         }
 
@@ -189,10 +235,15 @@ app.post('/api/action', (req, res) => {
 
         if (user.activeEvent === action) {
             // Success
-            const reward = Math.floor(Math.random() * (15 - 3 + 1)) + 3;
+            const xpMultiplier = user.inventory?.xpBuff ? 1.5 : 1;
+            const reward = (Math.floor(Math.random() * (15 - 3 + 1)) + 3) * xpMultiplier;
+            const coinReward = Math.floor(Math.random() * (30 - 10 + 1)) + 10;
             const reqXp = user.level * 100;
             user.xp += reward;
-            if (user.xp >= reqXp && user.level < 100) {
+            user.coins += coinReward;
+            user.interactionCount++;
+            
+            if (user.xp >= reqXp && user.level < 30) {
                 user.xp -= reqXp;
                 user.level++;
                 user.justLeveledUp = true;
@@ -201,6 +252,7 @@ app.post('/api/action', (req, res) => {
             user.activeEvent = null;
             user.lastEventResolved = true;
             user.lastReward = reward;
+            user.lastCoinReward = coinReward;
             user.lastEventTime = Date.now(); 
             
             console.log(`[Game Logic] ${username} solved event. Cooldown reset.`);
@@ -218,6 +270,76 @@ app.post('/api/action', (req, res) => {
         // --- BUG FIX END ---
 
         res.json(responseUser);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Server Error" });
+    }
+});
+
+app.post('/api/profile/update', (req, res) => {
+    const { username, profile } = req.body;
+    try {
+        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
+        const user = dbCache[username];
+        updateUserState(user);
+
+        if (profile) {
+            if (profile.avatar !== undefined) user.profile.avatar = profile.avatar;
+            if (profile.birthday !== undefined) user.profile.birthday = profile.birthday;
+            if (profile.signature !== undefined) user.profile.signature = profile.signature;
+        }
+
+        isDirty = true;
+        res.json(user);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Server Error" });
+    }
+});
+
+app.post('/api/store/buy', (req, res) => {
+    const { username, itemId, price, type } = req.body;
+    try {
+        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
+        const user = dbCache[username];
+        updateUserState(user);
+
+        if (user.coins >= price) {
+            user.coins -= price;
+            
+            if (type === 'buff' && itemId === 'xpBuff') user.inventory.xpBuff = true;
+            if (type === 'auto' && itemId === 'autoWater') user.inventory.autoWater = true;
+            if (type === 'skin') {
+                if (!user.inventory.unlockedSkins) user.inventory.unlockedSkins = ['default'];
+                if (!user.inventory.unlockedSkins.includes(itemId)) {
+                    user.inventory.unlockedSkins.push(itemId);
+                }
+                user.inventory.treeSkin = itemId;
+            }
+
+            isDirty = true;
+            res.json(user);
+        } else {
+            res.status(400).json({ error: "Not enough coins" });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Server Error" });
+    }
+});
+
+app.post('/api/store/equip', (req, res) => {
+    const { username, itemId } = req.body;
+    try {
+        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
+        const user = dbCache[username];
+        updateUserState(user);
+
+        if (user.inventory?.unlockedSkins?.includes(itemId) || itemId === 'default') {
+            user.inventory.treeSkin = itemId;
+            isDirty = true;
+        }
+        res.json(user);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Server Error" });
