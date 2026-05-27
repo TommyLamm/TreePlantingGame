@@ -43,6 +43,30 @@ function initializeDatabase() {
 
 initializeDatabase();
 
+// --- Ensure Admin always exists ---
+if (!dbCache['Admin']) {
+    dbCache['Admin'] = {
+        xp: 0,
+        level: 100,
+        activeEvent: null,
+        isDemoMode: false,
+        lastTick: Date.now(),
+        lastEventTime: Date.now(),
+        coins: 10000,
+        inventory: { xpBuff: false, autoWater: false, treeSkin: 'default', unlockedSkins: ['default'] },
+        joinDate: Date.now(),
+        playTime: 0,
+        interactionCount: 0,
+        profile: { avatar: null, birthday: '', signature: '' }
+    };
+    isDirty = true;
+    console.log(`[Init] Admin account created.`);
+} else {
+    // Keep Admin at max level
+    dbCache['Admin'].level = 100;
+    isDirty = true;
+}
+
 // --- Background Save Task ---
 const SAVE_INTERVAL_MS = 5000; // Save every 5 seconds
 setInterval(async () => {
@@ -105,10 +129,10 @@ function updateUserState(user) {
     const xpGained = (dt / 3600000) * speedMultiplier * 1 * xpMultiplier; // 1 XP per Hour
     const coinsGained = (dt / 3600000) * speedMultiplier * 50; // 50 coins per Hour
     
-    if (user.level < 30) {
+    if (user.level < 100) {
         user.xp += xpGained;
         user.coins += coinsGained;
-        const req = user.level * 100;
+        const req = Math.floor(10 + Math.pow(user.level, 1.6));
         if (user.xp >= req) {
             user.xp -= req;
             user.level++;
@@ -119,7 +143,7 @@ function updateUserState(user) {
     user.lastTick = now;
 
     // 4. Random Event Generation
-    if (!user.activeEvent && user.level < 30) {
+    if (!user.activeEvent && user.level < 100) {
         const timeSinceEvent = now - user.lastEventTime;
         const eventIntervalMs = (10 * 60000) / speedMultiplier; // 10 mins
 
@@ -137,11 +161,11 @@ function updateUserState(user) {
             const xpMultiplier = user.inventory.xpBuff ? 1.5 : 1;
             const reward = (Math.floor(Math.random() * (15 - 3 + 1)) + 3) * xpMultiplier;
             const coinReward = Math.floor(Math.random() * (30 - 10 + 1)) + 10;
-            const reqXp = user.level * 100;
+            const reqXp = Math.floor(10 + Math.pow(user.level, 1.6));
             user.xp += reward;
             user.coins += coinReward;
             user.interactionCount++; // Increment interaction for auto-resolve too
-            if (user.xp >= reqXp && user.level < 30) {
+            if (user.xp >= reqXp && user.level < 100) {
                 user.xp -= reqXp;
                 user.level++;
                 user.justLeveledUp = true;
@@ -171,7 +195,7 @@ app.post('/api/heartbeat', (req, res) => {
             const isAdm = username === 'Admin';
             dbCache[username] = { 
                 xp: 0, 
-                level: isAdm ? 30 : 1, 
+                level: isAdm ? 100 : 1, 
                 activeEvent: null, 
                 isDemoMode: false, 
                 lastTick: Date.now(), 
@@ -238,12 +262,12 @@ app.post('/api/action', (req, res) => {
             const xpMultiplier = user.inventory?.xpBuff ? 1.5 : 1;
             const reward = (Math.floor(Math.random() * (15 - 3 + 1)) + 3) * xpMultiplier;
             const coinReward = Math.floor(Math.random() * (30 - 10 + 1)) + 10;
-            const reqXp = user.level * 100;
+            const reqXp = Math.floor(10 + Math.pow(user.level, 1.6));
             user.xp += reward;
             user.coins += coinReward;
             user.interactionCount++;
             
-            if (user.xp >= reqXp && user.level < 30) {
+            if (user.xp >= reqXp && user.level < 100) {
                 user.xp -= reqXp;
                 user.level++;
                 user.justLeveledUp = true;

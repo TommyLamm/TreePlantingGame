@@ -1,4 +1,4 @@
-export const MAX_LEVEL = 30;
+export const MAX_LEVEL = 100;
 
 export const STORE_ITEMS = [
     { id: 'xpBuff', type: 'buff', price: 500, icon: '🌟', nameKey: 'itemXpBuff', descKey: 'descXpBuff' },

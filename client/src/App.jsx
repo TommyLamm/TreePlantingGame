@@ -43,7 +43,7 @@ export default function App() {
     // VISUAL EFFECTS STATE
     const [actionBursts, setActionBursts] = useState([]);
 
-    const xpRequired = Math.max(1, level * 100);
+    const xpRequired = Math.max(1, Math.floor(10 + Math.pow(level, 1.6)));
     const progress = Math.min(100, (xp / xpRequired) * 100);
 
     const t = createTranslator(lang);
