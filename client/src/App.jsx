@@ -1,353 +1,485 @@
-import React, { useState, useEffect } from 'react';
-import { MAX_LEVEL } from './constants';
+import React, { useState, useEffect, useReducer, useMemo, useCallback, memo } from 'react';
+import { MAX_LEVEL, ACHIEVEMENT_DEFS } from './constants';
 import { audio } from './utils/audio';
+import { api } from './utils/api';
 import { createTranslator } from './utils/i18n';
-import { CloudCheck, CloudOff, User, BookOpen, VolumeX, Volume2, Clock, Sun, Moon, Zap, Droplets, Bug, Shovel, Coins, ShoppingCart } from './components/Icons';
+import { CloudCheck, CloudOff, User, BookOpen, VolumeX, Volume2, Clock, Sun, Moon, Zap, Droplets, Bug, Shovel, Coins, ShoppingCart, Scissors, SunMedium, CloudLightning, Trophy } from './components/Icons';
 import { TreeVisual } from './components/TreeVisual';
 import { ActionButton } from './components/ActionButton';
 import { CollectionModal } from './components/CollectionModal';
 import { StoreModal } from './components/StoreModal';
 import { ProfileModal } from './components/ProfileModal';
+import { LeaderboardModal } from './components/LeaderboardModal';
 import { LoginScreen } from './components/LoginScreen';
+import { LoadingScreen } from './components/LoadingScreen';
+import { AchievementToast } from './components/AchievementToast';
 import { Particles } from './components/Particles';
+
+// --- Game State Reducer ---
+const initialGameState = {
+    xp: 0,
+    level: 1,
+    coins: 0,
+    inventory: null,
+    profileData: null,
+    joinDate: null,
+    playTimeMs: 0,
+    interactions: 0,
+    achievements: [],
+    activeEvent: null,
+    isDemoMode: false,
+};
+
+function gameReducer(state, action) {
+    switch (action.type) {
+        case 'SYNC_SERVER':
+            return {
+                ...state,
+                xp: Number(action.data.xp),
+                level: Number(action.data.level),
+                coins: Number(action.data.coins),
+                inventory: action.data.inventory,
+                joinDate: action.data.joinDate,
+                playTimeMs: action.data.playTime,
+                interactions: action.data.interactionCount,
+                achievements: action.data.achievements || [],
+                profileData: action.data.profile,
+                activeEvent: action.data.activeEvent,
+                isDemoMode: action.data.isDemoMode,
+            };
+        case 'SET_DEMO':
+            return { ...state, isDemoMode: action.value };
+        case 'SET_COINS':
+            return { ...state, coins: action.value };
+        case 'SET_INVENTORY':
+            return { ...state, inventory: action.value };
+        case 'SET_PROFILE':
+            return { ...state, profileData: action.value };
+        case 'SET_EVENT':
+            return { ...state, activeEvent: action.value };
+        case 'RESET':
+            return { ...initialGameState };
+        default:
+            return state;
+    }
+}
+
+// --- Memoized Tree ---
+const MemoizedTree = memo(TreeVisual);
 
 export default function App() {
     const [currentUser, setCurrentUser] = useState(() => localStorage.getItem('zenUser') || null);
-    const [serverStatus, setServerStatus] = useState('unknown'); 
+    const [serverStatus, setServerStatus] = useState('unknown');
     const [existingUsers, setExistingUsers] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const [xp, setXp] = useState(0);
-    const [level, setLevel] = useState(1);
-    const [coins, setCoins] = useState(0);
-    const [inventory, setInventory] = useState(null);
-    const [profileData, setProfileData] = useState(null);
-    const [joinDate, setJoinDate] = useState(null);
-    const [playTimeMs, setPlayTimeMs] = useState(0);
-    const [interactions, setInteractions] = useState(0);
-    const [activeEvent, setActiveEvent] = useState(null);
-    const [isDemoMode, setIsDemoMode] = useState(false);
+    const [game, dispatch] = useReducer(gameReducer, initialGameState);
+
     const [isMuted, setIsMuted] = useState(() => {
         const saved = localStorage.getItem('zenMuted');
         return saved !== null ? JSON.parse(saved) : true;
     });
-    // Read initial language from localStorage or default to 'en'
     const [lang, setLang] = useState(localStorage.getItem('zenLang') || 'en');
     const [logs, setLogs] = useState([]);
 
-    // OPTIMISTIC UI STATE: To prevent double clicking
+    // OPTIMISTIC UI STATE
     const [localActiveEvent, setLocalActiveEvent] = useState(null);
     const [showCollection, setShowCollection] = useState(false);
     const [showStore, setShowStore] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
-    
+    const [showLeaderboard, setShowLeaderboard] = useState(false);
+    const [leaderboardData, setLeaderboardData] = useState([]);
+
     // VISUAL EFFECTS STATE
     const [actionBursts, setActionBursts] = useState([]);
+    const [achievementQueue, setAchievementQueue] = useState([]);
 
-    const xpRequired = Math.max(1, Math.floor(10 + Math.pow(level, 1.6)));
-    const progress = Math.min(100, (xp / xpRequired) * 100);
+    const xpRequired = Math.max(1, Math.floor(10 + Math.pow(game.level, 1.6)));
+    const progress = Math.min(100, (game.xp / xpRequired) * 100);
 
-    const t = createTranslator(lang);
-    
-     // Sync audio state on mount
+    const t = useMemo(() => createTranslator(lang), [lang]);
+
+    // Sync audio state on mount
     useEffect(() => {
         audio.setMuted(isMuted);
     }, []);
 
-    // Sync activeEvent to localActiveEvent unless we are "processing" an action
+    // Sync activeEvent to localActiveEvent
     useEffect(() => {
-         if (activeEvent) setLocalActiveEvent(activeEvent);
-         // if activeEvent becomes null from server, local should clear too
-         if (!activeEvent) setLocalActiveEvent(null);
-    }, [activeEvent]);
+        setLocalActiveEvent(game.activeEvent);
+    }, [game.activeEvent]);
 
     // 1. Initial Fetch
     useEffect(() => {
-        fetch('/api/users')
-            .then(res => res.json())
+        api.getUsers()
             .then(users => setExistingUsers(users))
-            .catch(err => setServerStatus('offline'));
+            .catch(() => setServerStatus('offline'))
+            .finally(() => {
+                if (!currentUser) setIsLoading(false);
+            });
     }, []);
 
-    // 2. Polling Loop
+    // 2. Polling Loop with Page Visibility optimization
     useEffect(() => {
         if (!currentUser) return;
+        let isVisible = true;
+
         const poll = async () => {
             try {
-                const res = await fetch('/api/heartbeat', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: currentUser })
-                });
-                if (!res.ok) throw new Error("Heartbeat failed");
-                const data = await res.json();
-                
-                setXp(Number(data.xp));
-                setLevel(Number(data.level));
-                setCoins(Number(data.coins));
-                setInventory(data.inventory);
-                setJoinDate(data.joinDate);
-                setPlayTimeMs(data.playTime);
-                setInteractions(data.interactionCount);
-                setProfileData(data.profile);
-                // Only update active event if we aren't locally hiding it for optimistic UI
-                setActiveEvent(data.activeEvent);
-                setIsDemoMode(data.isDemoMode);
+                const data = await api.heartbeat(currentUser);
+
+                dispatch({ type: 'SYNC_SERVER', data });
                 setServerStatus('connected');
+                setIsLoading(false);
 
                 if (data.justLeveledUp) {
-                     audio.playLevelUp();
-                     addLog(t('levelUp', data.level));
+                    audio.playLevelUp();
+                    addLog(t('levelUp', data.level));
                 }
-            } catch (e) { setServerStatus('offline'); }
+
+                // Handle new achievements
+                if (data.newAchievements && data.newAchievements.length > 0) {
+                    const achDefs = data.newAchievements
+                        .map(id => ACHIEVEMENT_DEFS.find(a => a.id === id))
+                        .filter(Boolean);
+                    setAchievementQueue(prev => [...prev, ...achDefs]);
+                }
+            } catch (e) {
+                setServerStatus('offline');
+                setIsLoading(false);
+            }
         };
+
+        const handleVisibility = () => {
+            isVisible = !document.hidden;
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
         poll(); // initial immediate poll
-        const interval = setInterval(poll, 5000);
-        return () => clearInterval(interval);
+        const interval = setInterval(() => {
+            // Poll every 5s when visible, every 30s when hidden
+            if (isVisible) poll();
+        }, 5000);
+
+        // Background slow poll
+        const bgInterval = setInterval(() => {
+            if (!isVisible) poll();
+        }, 30000);
+
+        return () => {
+            clearInterval(interval);
+            clearInterval(bgInterval);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
     }, [currentUser, t]);
 
+    const addLog = useCallback((msg) => {
+        setLogs(prev => [msg, ...prev].slice(0, 2));
+    }, []);
+
     // Actions with OPTIMISTIC UI
-    const handleAction = async (actionType) => {
-        // 1. Hide Button Immediately
+    const handleAction = useCallback(async (actionType) => {
         setLocalActiveEvent(null);
-        
+
         // Spawn visual burst effect immediately
         const burstId = Date.now();
-        // Base X on action type to spread them out slightly
         let burstX = '50%';
-        if (actionType === 'WATER') burstX = '40%';
-        if (actionType === 'PEST') burstX = '50%';
-        if (actionType === 'FERTILIZE') burstX = '60%';
-        
+        if (actionType === 'WATER') burstX = '35%';
+        if (actionType === 'PEST') burstX = '42%';
+        if (actionType === 'FERTILIZE') burstX = '50%';
+        if (actionType === 'PRUNE') burstX = '58%';
+        if (actionType === 'SUNLIGHT') burstX = '65%';
+        if (actionType === 'STORM') burstX = '45%';
+
         setActionBursts(prev => [...prev, { id: burstId, type: actionType, x: burstX, y: '50%' }]);
         setTimeout(() => {
             setActionBursts(prev => prev.filter(b => b.id !== burstId));
         }, 1500);
 
         try {
-            const res = await fetch('/api/action', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUser, action: actionType })
-            });
-            const data = await res.json();
-            
+            const data = await api.sendAction(currentUser, actionType);
+
             if (data.lastEventResolved) {
-                 audio.playLevelUp(); 
-                 addLog(t('resolved', data.lastReward));
+                audio.playLevelUp();
+                addLog(t('resolved', data.lastReward));
             } else {
-                 audio.playClick();
-                 addLog(t('fail'));
+                audio.playClick();
+                addLog(t('fail'));
             }
             // Sync final state
-            setXp(Number(data.xp));
-            setLevel(Number(data.level));
-            setActiveEvent(data.activeEvent);
-        } catch(e) {
-            console.error(e);
-            // Revert if failed
-            setLocalActiveEvent(activeEvent);
-        }
-    };
-    
-    const toggleDemoState = async () => {
-        try {
-            const res = await fetch('/api/toggle-warp', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUser })
-            });
-            const data = await res.json();
-            setIsDemoMode(data.isDemoMode);
-        } catch (e) { console.error(e); }
-    };
+            dispatch({ type: 'SYNC_SERVER', data });
 
-    const handleLogin = (name) => {
-        // Resume audio context if it was created in suspended state (e.g. auto-unmute on load)
+            // Handle new achievements
+            if (data.newAchievements && data.newAchievements.length > 0) {
+                const achDefs = data.newAchievements
+                    .map(id => ACHIEVEMENT_DEFS.find(a => a.id === id))
+                    .filter(Boolean);
+                setAchievementQueue(prev => [...prev, ...achDefs]);
+            }
+        } catch (e) {
+            console.error(e);
+            setLocalActiveEvent(game.activeEvent);
+        }
+    }, [currentUser, game.activeEvent, t, addLog]);
+
+    const toggleDemoState = useCallback(async () => {
+        try {
+            const data = await api.toggleWarp(currentUser);
+            dispatch({ type: 'SET_DEMO', value: data.isDemoMode });
+        } catch (e) { console.error(e); }
+    }, [currentUser]);
+
+    const handleLogin = useCallback((name) => {
         if (audio.ctx && audio.ctx.state === 'suspended') {
             audio.ctx.resume();
         }
-
         setCurrentUser(name);
         localStorage.setItem('zenUser', name);
+        setIsLoading(true);
         audio.playClick();
-    };
+    }, []);
 
-    const handleLogout = () => {
+    const handleLogout = useCallback(() => {
         audio.playClick();
         setCurrentUser(null);
         localStorage.removeItem('zenUser');
-        setExistingUsers([]); // Clear to force re-fetch next render
-        
-        // Reset all states
-        setXp(0);
-        setLevel(1);
-        setCoins(0);
-        setInventory(null);
-        setProfileData(null);
-        setJoinDate(null);
-        setPlayTimeMs(0);
-        setInteractions(0);
-        setActiveEvent(null);
+        setExistingUsers([]);
+        dispatch({ type: 'RESET' });
         setLocalActiveEvent(null);
         setShowProfile(false);
         setShowStore(false);
         setShowCollection(false);
+        setShowLeaderboard(false);
 
-        fetch('/api/users').then(res => res.json()).then(users => setExistingUsers(users));
-    };
+        api.getUsers().then(users => setExistingUsers(users)).catch(() => {});
+    }, []);
 
-    const toggleMute = () => { 
+    const toggleMute = useCallback(() => {
         const newState = !isMuted;
-        setIsMuted(newState); 
+        setIsMuted(newState);
         localStorage.setItem('zenMuted', JSON.stringify(newState));
-        audio.setMuted(newState); 
-        if (!newState) audio.playClick(); 
-    };
+        audio.setMuted(newState);
+        if (!newState) audio.playClick();
+    }, [isMuted]);
 
-    const toggleCollection = () => {
+    const toggleCollection = useCallback(() => {
         audio.playClick();
         setShowCollection(prev => !prev);
-    };
-    
-    const cycleLang = () => {
+    }, []);
+
+    const cycleLang = useCallback(() => {
         audio.playClick();
         const langs = ['en', 'zh-CN', 'zh-TW'];
-        const nextIdx = (langs.indexOf(lang) + 1) % langs.length;
-        const newLang = langs[nextIdx];
-        setLang(newLang);
-        // Save preference to browser storage
-        localStorage.setItem('zenLang', newLang);
-    };
+        setLang(prev => {
+            const nextIdx = (langs.indexOf(prev) + 1) % langs.length;
+            const newLang = langs[nextIdx];
+            localStorage.setItem('zenLang', newLang);
+            return newLang;
+        });
+    }, []);
 
-    const addLog = (msg) => setLogs(prev => [msg, ...prev].slice(0, 2));
+    const handleOpenLeaderboard = useCallback(async () => {
+        audio.playClick();
+        try {
+            const data = await api.getLeaderboard();
+            setLeaderboardData(data);
+        } catch (e) {
+            setLeaderboardData([]);
+        }
+        setShowLeaderboard(true);
+    }, []);
+
     const isDay = new Date().getHours() > 6 && new Date().getHours() < 18;
 
-    const handleBuy = async (itemId, price, type) => {
+    const handleBuy = useCallback(async (itemId, price, type) => {
         try {
-            const res = await fetch('/api/store/buy', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUser, itemId, price, type })
-            });
-            if (!res.ok) {
-                addLog(t('notEnoughCoins'));
-                return;
-            }
-            const data = await res.json();
-            setCoins(Number(data.coins));
-            setInventory(data.inventory);
-            audio.playLevelUp(); // Just a positive sound
+            const data = await api.buyItem(currentUser, itemId, type);
+            dispatch({ type: 'SET_COINS', value: Number(data.coins) });
+            dispatch({ type: 'SET_INVENTORY', value: data.inventory });
+            audio.playLevelUp();
+        } catch (e) {
+            addLog(t('notEnoughCoins'));
+        }
+    }, [currentUser, t, addLog]);
+
+    const handleEquip = useCallback(async (itemId) => {
+        try {
+            const data = await api.equipItem(currentUser, itemId);
+            dispatch({ type: 'SET_INVENTORY', value: data.inventory });
+            audio.playClick();
         } catch (e) { console.error(e); }
+    }, [currentUser]);
+
+    const handleProfileSave = useCallback(async (updatedProfile) => {
+        try {
+            const data = await api.updateProfile(currentUser, updatedProfile);
+            dispatch({ type: 'SET_PROFILE', value: data.profile });
+            addLog(t('profileSaved'));
+        } catch (e) { console.error(e); }
+    }, [currentUser, t, addLog]);
+
+    const handleAchievementDone = useCallback(() => {
+        setAchievementQueue(prev => prev.slice(1));
+    }, []);
+
+    // --- Event action icon mapping ---
+    const eventIcons = {
+        WATER: <Droplets size={18} />,
+        PEST: <Bug size={18} />,
+        FERTILIZE: <Shovel size={18} />,
+        PRUNE: <Scissors size={18} />,
+        SUNLIGHT: <SunMedium size={18} />,
+        STORM: <CloudLightning size={18} />,
     };
 
-    const handleEquip = async (itemId) => {
-        try {
-            const res = await fetch('/api/store/equip', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUser, itemId })
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setInventory(data.inventory);
-                audio.playClick();
-            }
-        } catch (e) { console.error(e); }
+    const eventLabels = {
+        WATER: t('water'),
+        PEST: t('pest'),
+        FERTILIZE: t('feed'),
+        PRUNE: t('prune'),
+        SUNLIGHT: t('sunlight'),
+        STORM: t('storm'),
     };
 
-    const handleProfileSave = async (updatedProfile) => {
-        try {
-            const res = await fetch('/api/profile/update', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUser, profile: updatedProfile })
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setProfileData(data.profile);
-                addLog(t('resolved', 0).replace('0 XP.', 'Profile Saved.')); // Reusing log for simplicity or just a simple log
-            }
-        } catch (e) { console.error(e); }
-    };
+    // --- Render ---
+    if (!currentUser) {
+        if (isLoading) return <LoadingScreen t={t} />;
+        return <LoginScreen onLogin={handleLogin} t={t} existingUsers={existingUsers} />;
+    }
 
-    if (!currentUser) return <LoginScreen onLogin={handleLogin} t={t} existingUsers={existingUsers} />;
+    if (isLoading) return <LoadingScreen t={t} />;
 
     return (
         <div className={`fixed inset-0 flex flex-col items-center font-sans transition-colors duration-1000 ${isDay ? 'bg-gradient-to-b from-blue-200 to-blue-100' : 'bg-gradient-to-b from-indigo-900 to-slate-800 text-white'} overflow-hidden`}>
-            
+
             <Particles isDay={isDay} />
 
-            {/* Collection Modal */}
-            {showCollection && <CollectionModal currentLevel={level} onClose={toggleCollection} t={t} />}
-            
-            {/* Store Modal */}
-            {showStore && <StoreModal userCoins={coins} inventory={inventory} onBuy={handleBuy} onEquip={handleEquip} onClose={() => { audio.playClick(); setShowStore(false); }} t={t} />}
-
-            {/* Profile Modal */}
-            {showProfile && (
-                <ProfileModal 
-                    username={currentUser} 
-                    joinDate={joinDate} 
-                    playTimeMs={playTimeMs} 
-                    interactions={interactions} 
-                    profileData={profileData} 
-                    onSave={handleProfileSave} 
-                    onClose={() => { audio.playClick(); setShowProfile(false); }} 
-                    onLogout={handleLogout}
-                    t={t} 
+            {/* Achievement Toasts */}
+            {achievementQueue.length > 0 && (
+                <AchievementToast
+                    achievement={achievementQueue[0]}
+                    t={t}
+                    onDone={handleAchievementDone}
                 />
             )}
 
-            <div className="absolute top-4 right-4 flex flex-col gap-2 z-30 items-end">
-                <div className="flex gap-2">
-                     <div title={serverStatus === 'connected' ? "Online" : "Offline"} className={`flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all ${serverStatus === 'connected' ? 'bg-white text-green-500' : 'bg-red-100 text-red-500'}`}>{serverStatus === 'connected' ? <CloudCheck size={20} /> : <CloudOff size={20} />}</div>
-                     
-                     <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-lg font-bold text-sm text-yellow-600 border border-yellow-100">
-                         <Coins size={16} />
-                         <span>{Math.floor(coins)}</span>
-                     </div>
+            {/* Collection Modal */}
+            {showCollection && <CollectionModal currentLevel={game.level} achievements={game.achievements} onClose={toggleCollection} t={t} />}
 
-                     <button onClick={cycleLang} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-indigo-600 hover:bg-gray-50 font-bold text-xs">{t('langName')}</button>
-                    <button onClick={() => { audio.playClick(); setShowProfile(true); }} title={t('profile')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-blue-500 hover:bg-gray-50 overflow-hidden">
-                        {profileData?.avatar ? <img src={profileData.avatar} alt="User" className="w-full h-full object-cover" /> : <User size={20} />}
-                    </button>
-                    <button onClick={() => { audio.playClick(); setShowStore(true); }} title={t('store')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-amber-500 hover:bg-gray-50"><ShoppingCart size={20} /></button>
-                    <button onClick={toggleCollection} title={t('collection')} className="flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all bg-white text-green-600 hover:bg-gray-50"><BookOpen size={20} /></button>
-                    <button onClick={toggleMute} className={`flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all ${!isMuted ? 'bg-white text-blue-500' : 'bg-gray-200 text-gray-500'}`}>{isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>
-                    <button onClick={toggleDemoState} className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg text-xs font-bold transition-all ${isDemoMode ? 'bg-purple-600 text-white animate-pulse' : 'bg-white/80 text-gray-600 border border-white/50'}`}><Clock size={14} /> {isDemoMode ? t('timeWarp').split('(')[0] : t('realTime')}</button>
+            {/* Store Modal */}
+            {showStore && <StoreModal userCoins={game.coins} inventory={game.inventory} onBuy={handleBuy} onEquip={handleEquip} onClose={() => { audio.playClick(); setShowStore(false); }} t={t} />}
+
+            {/* Profile Modal */}
+            {showProfile && (
+                <ProfileModal
+                    username={currentUser}
+                    joinDate={game.joinDate}
+                    playTimeMs={game.playTimeMs}
+                    interactions={game.interactions}
+                    profileData={game.profileData}
+                    onSave={handleProfileSave}
+                    onClose={() => { audio.playClick(); setShowProfile(false); }}
+                    onLogout={handleLogout}
+                    t={t}
+                />
+            )}
+
+            {/* Leaderboard Modal */}
+            {showLeaderboard && (
+                <LeaderboardModal
+                    data={leaderboardData}
+                    currentUser={currentUser}
+                    onClose={() => { audio.playClick(); setShowLeaderboard(false); }}
+                    t={t}
+                />
+            )}
+
+            {/* Top toolbar — responsive layout */}
+            <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-30 items-end">
+                {/* Row 1: Status + coins */}
+                <div className="flex gap-1.5 items-center">
+                    <div title={serverStatus === 'connected' ? "Online" : "Offline"} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${serverStatus === 'connected' ? 'bg-white text-green-500' : 'bg-red-100 text-red-500'}`}>{serverStatus === 'connected' ? <CloudCheck size={16} /> : <CloudOff size={16} />}</div>
+
+                    <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full shadow-lg font-bold text-xs border ${isDay ? 'bg-white text-yellow-600 border-yellow-100' : 'bg-slate-700 text-yellow-400 border-slate-600'}`}>
+                        <Coins size={14} />
+                        <span>{Math.floor(game.coins)}</span>
+                    </div>
                 </div>
-                <div className="text-[10px] text-right text-gray-500 px-2">{currentUser} | {isDemoMode ? t('rateDemo') : t('rateNormal')}</div>
+
+                {/* Row 2: Action buttons */}
+                <div className="flex gap-1.5 flex-wrap justify-end">
+                    <button onClick={cycleLang} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all font-bold text-[10px] ${isDay ? 'bg-white text-indigo-600 hover:bg-gray-50' : 'bg-slate-700 text-indigo-300 hover:bg-slate-600'}`}>{t('langName')}</button>
+                    <button onClick={() => { audio.playClick(); setShowProfile(true); }} title={t('profile')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all overflow-hidden ${isDay ? 'bg-white text-blue-500 hover:bg-gray-50' : 'bg-slate-700 text-blue-300 hover:bg-slate-600'}`}>
+                        {game.profileData?.avatar ? <img src={game.profileData.avatar} alt="User" className="w-full h-full object-cover" /> : <User size={16} />}
+                    </button>
+                    <button onClick={() => { audio.playClick(); setShowStore(true); }} title={t('store')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${isDay ? 'bg-white text-amber-500 hover:bg-gray-50' : 'bg-slate-700 text-amber-300 hover:bg-slate-600'}`}><ShoppingCart size={16} /></button>
+                    <button onClick={toggleCollection} title={t('collection')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${isDay ? 'bg-white text-green-600 hover:bg-gray-50' : 'bg-slate-700 text-green-300 hover:bg-slate-600'}`}><BookOpen size={16} /></button>
+                    <button onClick={handleOpenLeaderboard} title={t('leaderboard')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${isDay ? 'bg-white text-purple-600 hover:bg-gray-50' : 'bg-slate-700 text-purple-300 hover:bg-slate-600'}`}><Trophy size={16} /></button>
+                    <button onClick={toggleMute} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${!isMuted ? (isDay ? 'bg-white text-blue-500' : 'bg-slate-700 text-blue-300') : (isDay ? 'bg-gray-200 text-gray-500' : 'bg-slate-800 text-slate-500')}`}>{isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
+                </div>
+
+                {/* Row 3: Time warp */}
+                <button onClick={toggleDemoState} className={`flex items-center gap-1.5 px-3 py-1 rounded-full shadow-lg text-[10px] font-bold transition-all ${game.isDemoMode ? 'bg-purple-600 text-white animate-pulse' : (isDay ? 'bg-white/80 text-gray-600 border border-white/50' : 'bg-slate-700/80 text-gray-300 border border-slate-600')}`}><Clock size={12} /> {game.isDemoMode ? t('timeWarp').split('(')[0] : t('realTime')}</button>
+
+                <div className={`text-[9px] text-right px-1 ${isDay ? 'text-gray-500' : 'text-gray-400'}`}>{currentUser} | {game.isDemoMode ? t('rateDemo') : t('rateNormal')}</div>
             </div>
 
-            <div className="w-full max-w-md flex-1 flex flex-col relative z-10 pb-6 pt-20 px-4">
-                <div className="absolute top-10 right-10 animate-pulse-slow z-0">{isDay ? <Sun size={48} className="text-yellow-400 drop-shadow-md" /> : <Moon size={48} className="text-gray-200 drop-shadow-md" />}</div>
-                
+            <div className="w-full max-w-md flex-1 flex flex-col relative z-10 pb-6 pt-16 px-4">
+                <div className="absolute top-8 right-10 animate-pulse-slow z-0">{isDay ? <Sun size={48} className="text-yellow-400 drop-shadow-md" /> : <Moon size={48} className="text-gray-200 drop-shadow-md" />}</div>
+
                 {/* Visual Action Bursts */}
                 {actionBursts.map(burst => (
                     <div key={burst.id} className="absolute z-40 pointer-events-none animate-burst" style={{ left: burst.x, top: burst.y, transform: 'translate(-50%, -50%)' }}>
                         {burst.type === 'WATER' && <Droplets size={32} className="text-blue-400 drop-shadow-md" />}
                         {burst.type === 'PEST' && <Bug size={32} className="text-red-400 drop-shadow-md" />}
                         {burst.type === 'FERTILIZE' && <Shovel size={32} className="text-yellow-400 drop-shadow-md" />}
+                        {burst.type === 'PRUNE' && <Scissors size={32} className="text-green-400 drop-shadow-md" />}
+                        {burst.type === 'SUNLIGHT' && <SunMedium size={32} className="text-orange-400 drop-shadow-md" />}
+                        {burst.type === 'STORM' && <CloudLightning size={32} className="text-purple-400 drop-shadow-md" />}
                         <div className="text-sm font-bold text-white drop-shadow-md text-center mt-1">+XP</div>
                     </div>
                 ))}
 
                 <div className="flex-1 w-full min-h-0 relative z-10 mb-4">
-                    <TreeVisual level={level} eventType={activeEvent} skin={inventory?.treeSkin} />
+                    <MemoizedTree level={game.level} eventType={game.activeEvent} skin={game.inventory?.treeSkin} />
                 </div>
 
-                <div className="w-full flex-shrink-0 bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-4 z-20 text-gray-800 border border-white/50">
+                {/* Bottom panel — dark mode aware */}
+                <div className={`w-full flex-shrink-0 backdrop-blur-xl rounded-3xl shadow-2xl p-4 z-20 border ${isDay ? 'bg-white/90 text-gray-800 border-white/50' : 'bg-slate-800/90 text-gray-100 border-slate-700/50'}`}>
                     <div className="flex justify-between items-end mb-2">
-                        <div><span className="text-xs font-bold uppercase tracking-wider text-gray-400">{t('status')}</span><div className="text-3xl font-bold text-gray-800 flex items-baseline gap-1">{t('level')} {level}{level === MAX_LEVEL && <span className="text-sm text-yellow-500 ml-2">{t('max')}</span>}</div></div>
-                        <div className="text-right"><div className="text-sm font-mono text-gray-500">{Math.floor(xp)} / {xpRequired} XP</div></div>
+                        <div>
+                            <span className={`text-xs font-bold uppercase tracking-wider ${isDay ? 'text-gray-400' : 'text-gray-500'}`}>{t('status')}</span>
+                            <div className={`text-3xl font-bold flex items-baseline gap-1 ${isDay ? 'text-gray-800' : 'text-white'}`}>
+                                {t('level')} {game.level}
+                                {game.level === MAX_LEVEL && <span className="text-sm text-yellow-500 ml-2">{t('max')}</span>}
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <div className={`text-sm font-mono ${isDay ? 'text-gray-500' : 'text-gray-400'}`}>{Math.floor(game.xp)} / {xpRequired} XP</div>
+                        </div>
                     </div>
-                    <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden mb-4 relative"><div className="h-full bg-green-500 transition-all duration-500 ease-out" style={{ width: `${progress}%` }} /><div className="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,rgba(255,255,255,1)_25%,transparent_25%,transparent_50%,rgba(255,255,255,1)_50%,rgba(255,255,255,1)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem]"></div></div>
+                    <div className={`w-full h-4 rounded-full overflow-hidden mb-4 relative ${isDay ? 'bg-gray-200' : 'bg-slate-700'}`}>
+                        <div className="h-full bg-green-500 transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+                        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,rgba(255,255,255,1)_25%,transparent_25%,transparent_50%,rgba(255,255,255,1)_50%,rgba(255,255,255,1)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem]"></div>
+                    </div>
                     <div className="h-24 w-full">
                         {localActiveEvent ? (
-                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 h-full animate-in slide-in-from-bottom-2 flex flex-col justify-between">
-                                <p className="text-amber-800 text-xs font-bold flex items-center gap-2"><Zap size={14} /> {t('action')}</p>
-                                <div className="flex gap-2 justify-center">
-                                    <ActionButton icon={<Droplets size={18} />} label={t('water')} isActive={localActiveEvent === 'WATER'} onClick={() => handleAction('WATER')} />
-                                    <ActionButton icon={<Bug size={18} />} label={t('pest')} isActive={localActiveEvent === 'PEST'} onClick={() => handleAction('PEST')} />
-                                    <ActionButton icon={<Shovel size={18} />} label={t('feed')} isActive={localActiveEvent === 'FERTILIZE'} onClick={() => handleAction('FERTILIZE')} />
+                            <div className={`rounded-xl p-2 h-full animate-in slide-in-from-bottom-2 flex flex-col justify-between border ${isDay ? 'bg-amber-50 border-amber-200' : 'bg-amber-900/30 border-amber-700/50'}`}>
+                                <p className={`text-xs font-bold flex items-center gap-2 ${isDay ? 'text-amber-800' : 'text-amber-300'}`}><Zap size={14} /> {t('action')}</p>
+                                <div className="flex gap-1.5 justify-center flex-wrap">
+                                    {Object.entries(eventIcons).map(([key, icon]) => (
+                                        <ActionButton
+                                            key={key}
+                                            icon={icon}
+                                            label={eventLabels[key]}
+                                            isActive={localActiveEvent === key}
+                                            onClick={() => handleAction(key)}
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-gray-400 text-xs italic border-2 border-dashed border-gray-200 rounded-xl">{t('peaceful')}</div>
+                            <div className={`h-full flex items-center justify-center text-xs italic border-2 border-dashed rounded-xl ${isDay ? 'text-gray-400 border-gray-200' : 'text-gray-500 border-slate-700'}`}>{t('peaceful')}</div>
                         )}
                     </div>
                 </div>

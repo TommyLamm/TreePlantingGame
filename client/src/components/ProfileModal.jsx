@@ -2,22 +2,29 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, Clock, Zap } from './Icons';
 import { audio } from '../utils/audio';
 
-export function ProfileModal({ 
-    username, 
-    joinDate, 
-    playTimeMs, 
-    interactions, 
-    profileData, 
-    onSave, 
-    onClose, 
+export function ProfileModal({
+    username,
+    joinDate,
+    playTimeMs,
+    interactions,
+    profileData,
+    onSave,
+    onClose,
     onLogout,
-    t 
+    t
 }) {
     const [avatar, setAvatar] = useState(profileData?.avatar || null);
     const [birthday, setBirthday] = useState(profileData?.birthday || '');
     const [signature, setSignature] = useState(profileData?.signature || '');
     const [errorMsg, setErrorMsg] = useState('');
     const fileInputRef = useRef(null);
+
+    // ESC close
+    useEffect(() => {
+        const handler = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [onClose]);
 
     // Sync state when profileData changes
     useEffect(() => {
@@ -28,7 +35,7 @@ export function ProfileModal({
 
     // Format Join Date
     const formattedJoinDate = joinDate ? new Date(joinDate).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/-/g, '/') : 'N/A';
-    
+
     // Format Play Time
     const hours = Math.floor(playTimeMs / 3600000);
     const minutes = Math.floor((playTimeMs % 3600000) / 60000);
@@ -58,8 +65,12 @@ export function ProfileModal({
         onClose();
     };
 
+    const handleBackdrop = (e) => {
+        if (e.target === e.currentTarget) { audio.playClick(); onClose(); }
+    };
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300" onClick={handleBackdrop}>
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex justify-between items-center relative overflow-hidden">
@@ -73,7 +84,7 @@ export function ProfileModal({
                 <div className="p-6 overflow-y-auto flex-1 bg-gray-50 flex flex-col gap-6">
                     {/* Avatar & Username section */}
                     <div className="flex flex-col items-center gap-3">
-                        <div 
+                        <div
                             className="relative w-24 h-24 rounded-full bg-gray-200 border-4 border-white shadow-lg overflow-hidden cursor-pointer group flex items-center justify-center text-gray-400"
                             onClick={() => fileInputRef.current?.click()}
                         >
@@ -86,11 +97,11 @@ export function ProfileModal({
                                 <span className="text-white text-xs font-bold">{t('uploadAvatar')}</span>
                             </div>
                         </div>
-                        <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            ref={fileInputRef} 
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={fileInputRef}
                             onChange={handleFileChange}
                         />
                         {errorMsg && <p className="text-red-500 text-xs font-bold">{errorMsg}</p>}
@@ -120,8 +131,8 @@ export function ProfileModal({
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">{t('birthday')}</label>
-                            <input 
-                                type="date" 
+                            <input
+                                type="date"
                                 value={birthday}
                                 onChange={e => setBirthday(e.target.value)}
                                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow text-sm text-gray-700"
@@ -129,7 +140,7 @@ export function ProfileModal({
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">{t('signature')}</label>
-                            <textarea 
+                            <textarea
                                 value={signature}
                                 onChange={e => setSignature(e.target.value)}
                                 maxLength={50}

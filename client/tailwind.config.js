@@ -16,6 +16,7 @@ export default {
         'fall': 'fall 12s linear infinite',
         'burst': 'burst 1.5s ease-out forwards',
         'level-up-bounce': 'level-up-bounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+        'loading-bar': 'loading-bar 2s ease-in-out infinite',
       },
       keyframes: {
         'bounce-slow': {
@@ -54,6 +55,11 @@ export default {
           '40%': { transform: 'scale(1.15) translateY(-5%)' },
           '70%': { transform: 'scale(0.95)' },
           '100%': { transform: 'scale(1) translateY(0)' },
+        },
+        'loading-bar': {
+          '0%': { width: '0%' },
+          '50%': { width: '70%' },
+          '100%': { width: '100%' },
         }
       }
     },

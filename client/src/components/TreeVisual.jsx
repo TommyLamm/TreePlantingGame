@@ -119,6 +119,24 @@ export const TreeVisual = ({ level, eventType, skin, isStatic = false }) => {
         fHigh = '#F06292';
         fShadow = '#880E4F';
         fEdge = '#F8BBD0';
+    } else if (skin === 'autumn') {
+        fBase = '#BF360C';
+        fMid = '#E65100';
+        fHigh = '#FF8F00';
+        fShadow = '#7F1D00';
+        fEdge = '#FFCC02';
+    } else if (skin === 'snow') {
+        fBase = '#546E7A';
+        fMid = '#78909C';
+        fHigh = '#B0BEC5';
+        fShadow = '#263238';
+        fEdge = '#ECEFF1';
+    } else if (skin === 'golden') {
+        fBase = '#F57F17';
+        fMid = '#FBC02D';
+        fHigh = '#FFEE58';
+        fShadow = '#E65100';
+        fEdge = '#FFF9C4';
     }
 
     // Generate a natural wavy pine layer path

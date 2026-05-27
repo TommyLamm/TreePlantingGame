@@ -1,11 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { STORE_ITEMS } from '../constants';
 import { Coins, ShoppingCart } from './Icons';
 import { audio } from '../utils/audio';
 
 export function StoreModal({ userCoins, inventory, onBuy, onEquip, onClose, t }) {
+    // ESC close
+    useEffect(() => {
+        const handler = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [onClose]);
+
+    const handleBackdrop = (e) => {
+        if (e.target === e.currentTarget) { audio.playClick(); onClose(); }
+    };
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300" onClick={handleBackdrop}>
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
                 <div className="p-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white flex justify-between items-center relative overflow-hidden">
                     <div className="relative z-10 flex items-center gap-2">
@@ -23,7 +34,7 @@ export function StoreModal({ userCoins, inventory, onBuy, onEquip, onClose, t })
                     {STORE_ITEMS.map(item => {
                         let isOwned = false;
                         let isEquipped = false;
-                        
+
                         if (item.type === 'buff' && item.id === 'xpBuff' && inventory?.xpBuff) isOwned = true;
                         if (item.type === 'auto' && item.id === 'autoWater' && inventory?.autoWater) isOwned = true;
                         if (item.type === 'skin') {
@@ -64,15 +75,15 @@ export function StoreModal({ userCoins, inventory, onBuy, onEquip, onClose, t })
                                             {t('owned')}
                                         </button>
                                     ) : (
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 if (canAfford) {
                                                     audio.playClick();
                                                     onBuy(item.id, item.price, item.type);
                                                 } else {
-                                                    audio.playClick(); 
+                                                    audio.playClick();
                                                 }
-                                            }} 
+                                            }}
                                             disabled={!canAfford}
                                             className={`px-3 py-1.5 rounded-lg text-xs font-bold w-full shadow-sm transition-colors whitespace-nowrap ${canAfford ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
                                         >
