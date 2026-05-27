@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { audio } from '../utils/audio';
 
-export function LeaderboardModal({ data, currentUser, onClose, t }) {
+export function LeaderboardModal({ data, currentUser, onVisitGarden, onClose, t }) {
     // ESC close
     useEffect(() => {
         const handler = (e) => { if (e.key === 'Escape') onClose(); };
@@ -28,19 +28,50 @@ export function LeaderboardModal({ data, currentUser, onClose, t }) {
                         <div className="text-center text-gray-400 py-8 italic">{t('noData')}</div>
                     ) : (
                         data.map((user, i) => (
-                            <div key={user.username} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                                user.username === currentUser
-                                    ? 'bg-purple-50 border-2 border-purple-200 shadow-sm'
-                                    : 'bg-white border border-gray-100'
-                            }`}>
+                            <div
+                                key={user.username}
+                                className={`flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer hover:shadow-md ${
+                                    user.username === currentUser
+                                        ? 'bg-purple-50 border-2 border-purple-200 shadow-sm'
+                                        : 'bg-white border border-gray-100 hover:border-gray-200'
+                                }`}
+                                onClick={() => {
+                                    if (user.username !== currentUser && onVisitGarden) {
+                                        audio.playClick();
+                                        onVisitGarden(user.username);
+                                    }
+                                }}
+                            >
                                 <div className="w-8 text-center font-bold text-lg">
                                     {i < 3 ? medals[i] : <span className="text-gray-400">#{i + 1}</span>}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="font-bold text-gray-800 text-sm truncate">{user.username}</div>
+                                    <div className="font-bold text-gray-800 text-sm truncate flex items-center gap-1.5">
+                                        {user.username}
+                                        {(user.generation || 0) > 0 && (
+                                            <span className="px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded text-[10px] font-bold">
+                                                G{user.generation}
+                                            </span>
+                                        )}
+                                        {user.companion && (
+                                            <span className="text-xs">
+                                                {user.companion === 'butterfly' ? '🦋' :
+                                                 user.companion === 'squirrel' ? '🐿️' :
+                                                 user.companion === 'bird' ? '🐦' :
+                                                 user.companion === 'owl' ? '🦉' :
+                                                 user.companion === 'deer' ? '🦌' :
+                                                 user.companion === 'phoenix' ? '🔥' : ''}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="text-xs text-gray-500">{t('level')} {user.level}</div>
                                 </div>
-                                <div className="text-xs font-mono text-gray-400">{Math.floor(user.xp)} XP</div>
+                                <div className="text-right flex flex-col items-end">
+                                    <div className="text-xs font-mono text-gray-400">{Math.floor(user.xp)} XP</div>
+                                    {user.username !== currentUser && (
+                                        <span className="text-[10px] text-teal-500 font-medium">{t('visitGarden')} →</span>
+                                    )}
+                                </div>
                             </div>
                         ))
                     )}

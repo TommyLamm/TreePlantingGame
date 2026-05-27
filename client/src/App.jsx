@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useReducer, useMemo, useCallback, memo } from 'react';
-import { MAX_LEVEL, ACHIEVEMENT_DEFS } from './constants';
+import { MAX_LEVEL, ACHIEVEMENT_DEFS, COMPANIONS } from './constants';
 import { audio } from './utils/audio';
 import { api } from './utils/api';
 import { createTranslator } from './utils/i18n';
@@ -14,6 +14,15 @@ import { LoginScreen } from './components/LoginScreen';
 import { LoadingScreen } from './components/LoadingScreen';
 import { AchievementToast } from './components/AchievementToast';
 import { Particles } from './components/Particles';
+// New components
+import { WeatherDisplay } from './components/WeatherDisplay';
+import { DailyRewardModal } from './components/DailyRewardModal';
+import { OfflineEarningsModal } from './components/OfflineEarningsModal';
+import { PrestigeModal } from './components/PrestigeModal';
+import { StatsModal } from './components/StatsModal';
+import { MiniGameModal } from './components/MiniGameModal';
+import { CompanionSelect } from './components/CompanionSelect';
+import { GardenVisitModal } from './components/GardenVisitModal';
 
 // --- Game State Reducer ---
 const initialGameState = {
@@ -28,6 +37,28 @@ const initialGameState = {
     achievements: [],
     activeEvent: null,
     isDemoMode: false,
+    // New fields
+    weather: 'sunny',
+    season: 'spring',
+    combo: 0,
+    maxCombo: 0,
+    companion: null,
+    unlockedCompanions: [],
+    generation: 0,
+    prestigePoints: 0,
+    prestigeUpgrades: {},
+    loginStreak: 0,
+    maxLoginStreak: 0,
+    dailyRewardClaimed: false,
+    dailyRewardAvailable: false,
+    totalXpEarned: 0,
+    totalCoinsEarned: 0,
+    totalEventsResolved: 0,
+    lastOfflineXp: 0,
+    lastOfflineCoins: 0,
+    goldenHourUntil: 0,
+    minigameCount: 0,
+    minigameDate: null,
 };
 
 function gameReducer(state, action) {
@@ -46,6 +77,28 @@ function gameReducer(state, action) {
                 profileData: action.data.profile,
                 activeEvent: action.data.activeEvent,
                 isDemoMode: action.data.isDemoMode,
+                // New fields
+                weather: action.data.weather || 'sunny',
+                season: action.data.season || 'spring',
+                combo: action.data.combo || 0,
+                maxCombo: action.data.maxCombo || 0,
+                companion: action.data.companion || null,
+                unlockedCompanions: action.data.unlockedCompanions || [],
+                generation: action.data.generation || 0,
+                prestigePoints: action.data.prestigePoints || 0,
+                prestigeUpgrades: action.data.prestigeUpgrades || {},
+                loginStreak: action.data.loginStreak || 0,
+                maxLoginStreak: action.data.maxLoginStreak || 0,
+                dailyRewardClaimed: action.data.dailyRewardClaimed || false,
+                dailyRewardAvailable: action.data.dailyRewardAvailable || false,
+                totalXpEarned: action.data.totalXpEarned || 0,
+                totalCoinsEarned: action.data.totalCoinsEarned || 0,
+                totalEventsResolved: action.data.totalEventsResolved || 0,
+                lastOfflineXp: action.data.lastOfflineXp || 0,
+                lastOfflineCoins: action.data.lastOfflineCoins || 0,
+                goldenHourUntil: action.data.goldenHourUntil || 0,
+                minigameCount: action.data.minigameCount || 0,
+                minigameDate: action.data.minigameDate || null,
             };
         case 'SET_DEMO':
             return { ...state, isDemoMode: action.value };
@@ -90,9 +143,22 @@ export default function App() {
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [leaderboardData, setLeaderboardData] = useState([]);
 
+    // NEW MODAL STATES
+    const [showDailyReward, setShowDailyReward] = useState(false);
+    const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
+    const [showPrestige, setShowPrestige] = useState(false);
+    const [showStats, setShowStats] = useState(false);
+    const [showMiniGames, setShowMiniGames] = useState(false);
+    const [showCompanions, setShowCompanions] = useState(false);
+    const [showGardenVisit, setShowGardenVisit] = useState(false);
+    const [gardenVisitData, setGardenVisitData] = useState(null);
+    const [giftError, setGiftError] = useState(null);
+    const [firstLoad, setFirstLoad] = useState(true);
+
     // VISUAL EFFECTS STATE
     const [actionBursts, setActionBursts] = useState([]);
     const [achievementQueue, setAchievementQueue] = useState([]);
+    const [shakeAnim, setShakeAnim] = useState(false);
 
     const xpRequired = Math.max(1, Math.floor(10 + Math.pow(game.level, 1.6)));
     const progress = Math.min(100, (game.xp / xpRequired) * 100);
@@ -143,6 +209,28 @@ export default function App() {
                         .map(id => ACHIEVEMENT_DEFS.find(a => a.id === id))
                         .filter(Boolean);
                     setAchievementQueue(prev => [...prev, ...achDefs]);
+                }
+
+                // Storm penalty
+                if (data.stormPenalty) {
+                    addLog(t('stormPenalty'));
+                }
+
+                // Golden hour triggered
+                if (data.goldenHourTriggered) {
+                    addLog(t('goldenHour'));
+                }
+
+                // First load — show offline earnings and/or daily reward
+                if (firstLoad) {
+                    setFirstLoad(false);
+                    // Show offline earnings if significant
+                    if ((data.lastOfflineXp || 0) > 0.5 || (data.lastOfflineCoins || 0) > 1) {
+                        setShowOfflineEarnings(true);
+                    } else if (data.dailyRewardAvailable) {
+                        // Show daily reward prompt
+                        setShowDailyReward(true);
+                    }
                 }
             } catch (e) {
                 setServerStatus('offline');
@@ -201,10 +289,20 @@ export default function App() {
 
             if (data.lastEventResolved) {
                 audio.playLevelUp();
-                addLog(t('resolved', data.lastReward));
+                addLog(t('resolved', Math.floor(data.lastReward)));
+                if ((data.combo || 0) > 1) {
+                    addLog(t('comboX', data.combo));
+                }
+                // Golden hour notification
+                if (actionType === 'SUNLIGHT') {
+                    addLog(t('goldenHour'));
+                }
             } else {
                 audio.playClick();
                 addLog(t('fail'));
+                if ((data.combo || 0) === 0) {
+                    addLog(t('comboBreak'));
+                }
             }
             // Sync final state
             dispatch({ type: 'SYNC_SERVER', data });
@@ -236,6 +334,7 @@ export default function App() {
         setCurrentUser(name);
         localStorage.setItem('zenUser', name);
         setIsLoading(true);
+        setFirstLoad(true);
         audio.playClick();
     }, []);
 
@@ -250,6 +349,13 @@ export default function App() {
         setShowStore(false);
         setShowCollection(false);
         setShowLeaderboard(false);
+        setShowDailyReward(false);
+        setShowPrestige(false);
+        setShowStats(false);
+        setShowMiniGames(false);
+        setShowCompanions(false);
+        setShowGardenVisit(false);
+        setFirstLoad(true);
 
         api.getUsers().then(users => setExistingUsers(users)).catch(() => {});
     }, []);
@@ -322,6 +428,97 @@ export default function App() {
         setAchievementQueue(prev => prev.slice(1));
     }, []);
 
+    // --- New handlers ---
+    const handleClaimDailyReward = useCallback(async () => {
+        try {
+            const data = await api.claimDailyReward(currentUser);
+            dispatch({ type: 'SYNC_SERVER', data });
+            addLog(t('dailyRewardClaimed', data.claimedReward?.coins || 0));
+        } catch (e) { console.error(e); }
+    }, [currentUser, t, addLog]);
+
+    const handlePrestige = useCallback(async () => {
+        try {
+            const data = await api.prestige(currentUser);
+            dispatch({ type: 'SYNC_SERVER', data });
+            addLog(t('generationFull', data.generation));
+        } catch (e) { console.error(e); }
+    }, [currentUser, t, addLog]);
+
+    const handlePrestigeUpgrade = useCallback(async (upgradeId) => {
+        try {
+            const data = await api.prestigeUpgrade(currentUser, upgradeId);
+            dispatch({ type: 'SYNC_SERVER', data });
+        } catch (e) { console.error(e); }
+    }, [currentUser]);
+
+    const handleBuyCompanion = useCallback(async (companionId) => {
+        try {
+            const data = await api.buyCompanion(currentUser, companionId);
+            dispatch({ type: 'SYNC_SERVER', data });
+            audio.playLevelUp();
+        } catch (e) { addLog(t('notEnoughCoins')); }
+    }, [currentUser, t, addLog]);
+
+    const handleEquipCompanion = useCallback(async (companionId) => {
+        try {
+            const data = await api.equipCompanion(currentUser, companionId);
+            dispatch({ type: 'SYNC_SERVER', data });
+            audio.playClick();
+        } catch (e) { console.error(e); }
+    }, [currentUser]);
+
+    const handleShakeTree = useCallback(async () => {
+        setShakeAnim(true);
+        setTimeout(() => setShakeAnim(false), 500);
+        try {
+            const data = await api.shakeTree(currentUser);
+            if (data.cooldown) {
+                addLog(t('shakeCooldown'));
+            } else if (data.coins > 0) {
+                addLog(t('shakeCoins', data.coins));
+                audio.playLevelUp();
+            } else {
+                addLog(t('shakeNothing'));
+            }
+        } catch (e) { console.error(e); }
+    }, [currentUser, t, addLog]);
+
+    const handleVisitGarden = useCallback(async (username) => {
+        try {
+            const data = await api.visitGarden(username);
+            setGardenVisitData(data);
+            setGiftError(null);
+            setShowGardenVisit(true);
+            setShowLeaderboard(false);
+        } catch (e) { console.error(e); }
+    }, []);
+
+    const handleSendGift = useCallback(async (toUsername) => {
+        try {
+            await api.sendGift(currentUser, toUsername);
+            addLog(t('giftSent'));
+            setGiftError(null);
+        } catch (e) {
+            setGiftError(e.message);
+        }
+    }, [currentUser, t, addLog]);
+
+    const handleMinigameReward = useCallback(async (gameType, score) => {
+        try {
+            const data = await api.claimMinigameReward(currentUser, gameType, score);
+            addLog(t('coinsEarned', data.coinsEarned));
+        } catch (e) { console.error(e); }
+    }, [currentUser, t, addLog]);
+
+    const handleOfflineClose = useCallback(() => {
+        setShowOfflineEarnings(false);
+        // After closing offline earnings, show daily reward if available
+        if (game.dailyRewardAvailable) {
+            setTimeout(() => setShowDailyReward(true), 300);
+        }
+    }, [game.dailyRewardAvailable]);
+
     // --- Event action icon mapping ---
     const eventIcons = {
         WATER: <Droplets size={18} />,
@@ -340,6 +537,18 @@ export default function App() {
         SUNLIGHT: t('sunlight'),
         STORM: t('storm'),
     };
+
+    // Golden hour active?
+    const goldenHourActive = Date.now() < (game.goldenHourUntil || 0);
+
+    // Companion emoji
+    const companionEmoji = game.companion
+        ? (COMPANIONS.find(c => c.id === game.companion)?.icon || '')
+        : '';
+
+    // Today's minigame count
+    const today = new Date().toISOString().slice(0, 10);
+    const gamesRemaining = game.minigameDate === today ? Math.max(0, 3 - (game.minigameCount || 0)) : 3;
 
     // --- Render ---
     if (!currentUser) {
@@ -363,13 +572,9 @@ export default function App() {
                 />
             )}
 
-            {/* Collection Modal */}
+            {/* --- MODALS --- */}
             {showCollection && <CollectionModal currentLevel={game.level} achievements={game.achievements} onClose={toggleCollection} t={t} />}
-
-            {/* Store Modal */}
             {showStore && <StoreModal userCoins={game.coins} inventory={game.inventory} onBuy={handleBuy} onEquip={handleEquip} onClose={() => { audio.playClick(); setShowStore(false); }} t={t} />}
-
-            {/* Profile Modal */}
             {showProfile && (
                 <ProfileModal
                     username={currentUser}
@@ -383,22 +588,120 @@ export default function App() {
                     t={t}
                 />
             )}
-
-            {/* Leaderboard Modal */}
             {showLeaderboard && (
                 <LeaderboardModal
                     data={leaderboardData}
                     currentUser={currentUser}
+                    onVisitGarden={handleVisitGarden}
                     onClose={() => { audio.playClick(); setShowLeaderboard(false); }}
                     t={t}
                 />
             )}
+            {showDailyReward && (
+                <DailyRewardModal
+                    loginStreak={game.loginStreak}
+                    currentDayIndex={((game.loginStreak || 1) - 1) % 7}
+                    claimed={game.dailyRewardClaimed}
+                    onClaim={handleClaimDailyReward}
+                    onClose={() => setShowDailyReward(false)}
+                    t={t}
+                />
+            )}
+            {showOfflineEarnings && (
+                <OfflineEarningsModal
+                    xpEarned={game.lastOfflineXp}
+                    coinsEarned={game.lastOfflineCoins}
+                    timeAwayMs={game.lastOfflineXp > 0 ? (game.lastOfflineXp / 1 * 3600000) : 60000}
+                    onClose={handleOfflineClose}
+                    t={t}
+                />
+            )}
+            {showPrestige && (
+                <PrestigeModal
+                    currentLevel={game.level}
+                    generation={game.generation}
+                    prestigePoints={game.prestigePoints}
+                    prestigeUpgrades={game.prestigeUpgrades}
+                    onPrestige={handlePrestige}
+                    onUpgrade={handlePrestigeUpgrade}
+                    onClose={() => { audio.playClick(); setShowPrestige(false); }}
+                    t={t}
+                />
+            )}
+            {showStats && (
+                <StatsModal
+                    stats={{
+                        level: game.level,
+                        generation: game.generation,
+                        coins: game.coins,
+                        totalXpEarned: game.totalXpEarned,
+                        totalCoinsEarned: game.totalCoinsEarned,
+                        totalEventsResolved: game.totalEventsResolved,
+                        interactionCount: game.interactions,
+                        maxCombo: game.maxCombo,
+                        maxLoginStreak: game.maxLoginStreak,
+                        playTimeMs: game.playTimeMs,
+                        joinDate: game.joinDate,
+                        companion: companionEmoji,
+                        achievements: game.achievements,
+                    }}
+                    onClose={() => { audio.playClick(); setShowStats(false); }}
+                    t={t}
+                />
+            )}
+            {showMiniGames && (
+                <MiniGameModal
+                    gamesRemaining={gamesRemaining}
+                    onReward={handleMinigameReward}
+                    onClose={() => { audio.playClick(); setShowMiniGames(false); }}
+                    t={t}
+                />
+            )}
+            {showCompanions && (
+                <CompanionSelect
+                    unlockedCompanions={game.unlockedCompanions}
+                    equippedCompanion={game.companion}
+                    userCoins={game.coins}
+                    userLevel={game.level}
+                    generation={game.generation}
+                    onBuy={handleBuyCompanion}
+                    onEquip={handleEquipCompanion}
+                    onClose={() => { audio.playClick(); setShowCompanions(false); }}
+                    t={t}
+                />
+            )}
+            {showGardenVisit && (
+                <GardenVisitModal
+                    visitData={gardenVisitData}
+                    currentUser={currentUser}
+                    onGift={handleSendGift}
+                    giftError={giftError}
+                    onClose={() => { audio.playClick(); setShowGardenVisit(false); }}
+                    t={t}
+                />
+            )}
 
-            {/* Top toolbar — responsive layout */}
+            {/* Top toolbar */}
+            <div className="absolute top-3 left-3 z-30">
+                <WeatherDisplay weather={game.weather} season={game.season} isDay={isDay} />
+            </div>
+
             <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-30 items-end">
-                {/* Row 1: Status + coins */}
+                {/* Row 1: Status + coins + combo */}
                 <div className="flex gap-1.5 items-center">
                     <div title={serverStatus === 'connected' ? "Online" : "Offline"} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${serverStatus === 'connected' ? 'bg-white text-green-500' : 'bg-red-100 text-red-500'}`}>{serverStatus === 'connected' ? <CloudCheck size={16} /> : <CloudOff size={16} />}</div>
+
+                    {game.combo > 0 && (
+                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-full shadow-lg font-bold text-xs bg-orange-500 text-white animate-pulse">
+                            🔥 ×{game.combo}
+                        </div>
+                    )}
+
+                    {goldenHourActive && (
+                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-full shadow-lg font-bold text-xs bg-yellow-400 text-yellow-900 animate-pulse">
+                            ☀️ 2×
+                        </div>
+                    )}
 
                     <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full shadow-lg font-bold text-xs border ${isDay ? 'bg-white text-yellow-600 border-yellow-100' : 'bg-slate-700 text-yellow-400 border-slate-600'}`}>
                         <Coins size={14} />
@@ -418,10 +721,34 @@ export default function App() {
                     <button onClick={toggleMute} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${!isMuted ? (isDay ? 'bg-white text-blue-500' : 'bg-slate-700 text-blue-300') : (isDay ? 'bg-gray-200 text-gray-500' : 'bg-slate-800 text-slate-500')}`}>{isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
                 </div>
 
-                {/* Row 3: Time warp */}
+                {/* Row 3: New feature buttons */}
+                <div className="flex gap-1.5 flex-wrap justify-end">
+                    <button onClick={() => { audio.playClick(); setShowCompanions(true); }} title={t('companions')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                        {companionEmoji || '🐾'}
+                    </button>
+                    <button onClick={() => { audio.playClick(); setShowPrestige(true); }} title={t('prestige')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                        {game.generation > 0 ? `♻️` : '♻️'}
+                    </button>
+                    <button onClick={() => { audio.playClick(); setShowMiniGames(true); }} title={t('miniGames')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                        🎮
+                    </button>
+                    <button onClick={() => { audio.playClick(); setShowStats(true); }} title={t('stats')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                        📊
+                    </button>
+                    <button onClick={() => { audio.playClick(); setShowDailyReward(true); }} title={t('dailyReward')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${game.dailyRewardAvailable ? 'bg-amber-400 animate-pulse' : (isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600')}`}>
+                        📅
+                    </button>
+                </div>
+
+                {/* Row 4: Time warp */}
                 <button onClick={toggleDemoState} className={`flex items-center gap-1.5 px-3 py-1 rounded-full shadow-lg text-[10px] font-bold transition-all ${game.isDemoMode ? 'bg-purple-600 text-white animate-pulse' : (isDay ? 'bg-white/80 text-gray-600 border border-white/50' : 'bg-slate-700/80 text-gray-300 border border-slate-600')}`}><Clock size={12} /> {game.isDemoMode ? t('timeWarp').split('(')[0] : t('realTime')}</button>
 
-                <div className={`text-[9px] text-right px-1 ${isDay ? 'text-gray-500' : 'text-gray-400'}`}>{currentUser} | {game.isDemoMode ? t('rateDemo') : t('rateNormal')}</div>
+                <div className={`text-[9px] text-right px-1 ${isDay ? 'text-gray-500' : 'text-gray-400'}`}>
+                    {currentUser}
+                    {game.generation > 0 && ` | Gen ${game.generation}`}
+                    {companionEmoji && ` ${companionEmoji}`}
+                    {' | '}{game.isDemoMode ? t('rateDemo') : t('rateNormal')}
+                </div>
             </div>
 
             <div className="w-full max-w-md flex-1 flex flex-col relative z-10 pb-6 pt-16 px-4">
@@ -440,11 +767,11 @@ export default function App() {
                     </div>
                 ))}
 
-                <div className="flex-1 w-full min-h-0 relative z-10 mb-4">
+                <div className={`flex-1 w-full min-h-0 relative z-10 mb-4 cursor-pointer transition-transform ${shakeAnim ? 'animate-wiggle' : ''}`} onClick={handleShakeTree}>
                     <MemoizedTree level={game.level} eventType={game.activeEvent} skin={game.inventory?.treeSkin} />
                 </div>
 
-                {/* Bottom panel — dark mode aware */}
+                {/* Bottom panel */}
                 <div className={`w-full flex-shrink-0 backdrop-blur-xl rounded-3xl shadow-2xl p-4 z-20 border ${isDay ? 'bg-white/90 text-gray-800 border-white/50' : 'bg-slate-800/90 text-gray-100 border-slate-700/50'}`}>
                     <div className="flex justify-between items-end mb-2">
                         <div>
@@ -452,20 +779,33 @@ export default function App() {
                             <div className={`text-3xl font-bold flex items-baseline gap-1 ${isDay ? 'text-gray-800' : 'text-white'}`}>
                                 {t('level')} {game.level}
                                 {game.level === MAX_LEVEL && <span className="text-sm text-yellow-500 ml-2">{t('max')}</span>}
+                                {game.generation > 0 && <span className="text-sm text-purple-400 ml-1">G{game.generation}</span>}
                             </div>
                         </div>
                         <div className="text-right">
                             <div className={`text-sm font-mono ${isDay ? 'text-gray-500' : 'text-gray-400'}`}>{Math.floor(game.xp)} / {xpRequired} XP</div>
+                            {game.combo > 0 && <div className="text-xs text-orange-500 font-bold">🔥 {t('combo')} ×{game.combo}</div>}
                         </div>
                     </div>
                     <div className={`w-full h-4 rounded-full overflow-hidden mb-4 relative ${isDay ? 'bg-gray-200' : 'bg-slate-700'}`}>
-                        <div className="h-full bg-green-500 transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+                        <div className={`h-full transition-all duration-500 ease-out ${goldenHourActive ? 'bg-yellow-400' : 'bg-green-500'}`} style={{ width: `${progress}%` }} />
                         <div className="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,rgba(255,255,255,1)_25%,transparent_25%,transparent_50%,rgba(255,255,255,1)_50%,rgba(255,255,255,1)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem]"></div>
                     </div>
                     <div className="h-24 w-full">
                         {localActiveEvent ? (
-                            <div className={`rounded-xl p-2 h-full animate-in slide-in-from-bottom-2 flex flex-col justify-between border ${isDay ? 'bg-amber-50 border-amber-200' : 'bg-amber-900/30 border-amber-700/50'}`}>
-                                <p className={`text-xs font-bold flex items-center gap-2 ${isDay ? 'text-amber-800' : 'text-amber-300'}`}><Zap size={14} /> {t('action')}</p>
+                            <div className={`rounded-xl p-2 h-full animate-in slide-in-from-bottom-2 flex flex-col justify-between border ${
+                                localActiveEvent === 'STORM'
+                                    ? (isDay ? 'bg-purple-50 border-purple-200' : 'bg-purple-900/30 border-purple-700/50')
+                                    : (isDay ? 'bg-amber-50 border-amber-200' : 'bg-amber-900/30 border-amber-700/50')
+                            }`}>
+                                <p className={`text-xs font-bold flex items-center gap-2 ${
+                                    localActiveEvent === 'STORM'
+                                        ? (isDay ? 'text-purple-800' : 'text-purple-300')
+                                        : (isDay ? 'text-amber-800' : 'text-amber-300')
+                                }`}>
+                                    <Zap size={14} />
+                                    {localActiveEvent === 'STORM' ? t('stormWarning') : t('action')}
+                                </p>
                                 <div className="flex gap-1.5 justify-center flex-wrap">
                                     {Object.entries(eventIcons).map(([key, icon]) => (
                                         <ActionButton

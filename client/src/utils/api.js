@@ -51,4 +51,50 @@ export const api = {
     request(`/api/achievements/${encodeURIComponent(username)}`),
 
   health: () => request('/api/health'),
+
+  // --- New API Methods ---
+
+  getWeather: () => request('/api/weather'),
+
+  claimDailyReward: (username) => request('/api/daily-reward/claim', {
+    method: 'POST',
+    body: JSON.stringify({ username }),
+  }),
+
+  buyCompanion: (username, companionId) => request('/api/companion/buy', {
+    method: 'POST',
+    body: JSON.stringify({ username, companionId }),
+  }),
+
+  equipCompanion: (username, companionId) => request('/api/companion/equip', {
+    method: 'POST',
+    body: JSON.stringify({ username, companionId }),
+  }),
+
+  prestige: (username) => request('/api/prestige', {
+    method: 'POST',
+    body: JSON.stringify({ username }),
+  }),
+
+  prestigeUpgrade: (username, upgradeId) => request('/api/prestige/upgrade', {
+    method: 'POST',
+    body: JSON.stringify({ username, upgradeId }),
+  }),
+
+  shakeTree: (username) => request('/api/shake', {
+    method: 'POST',
+    body: JSON.stringify({ username }),
+  }),
+
+  visitGarden: (username) => request(`/api/garden/${encodeURIComponent(username)}`),
+
+  sendGift: (fromUsername, toUsername) => request('/api/gift', {
+    method: 'POST',
+    body: JSON.stringify({ fromUsername, toUsername }),
+  }),
+
+  claimMinigameReward: (username, gameType, score) => request('/api/minigame/reward', {
+    method: 'POST',
+    body: JSON.stringify({ username, gameType, score }),
+  }),
 };

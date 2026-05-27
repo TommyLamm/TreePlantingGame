@@ -17,6 +17,7 @@ export default {
         'burst': 'burst 1.5s ease-out forwards',
         'level-up-bounce': 'level-up-bounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
         'loading-bar': 'loading-bar 2s ease-in-out infinite',
+        'wiggle': 'wiggle 0.5s ease-in-out',
       },
       keyframes: {
         'bounce-slow': {
@@ -60,6 +61,13 @@ export default {
           '0%': { width: '0%' },
           '50%': { width: '70%' },
           '100%': { width: '100%' },
+        },
+        'wiggle': {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '20%': { transform: 'rotate(-3deg)' },
+          '40%': { transform: 'rotate(3deg)' },
+          '60%': { transform: 'rotate(-2deg)' },
+          '80%': { transform: 'rotate(2deg)' },
         }
       }
     },
