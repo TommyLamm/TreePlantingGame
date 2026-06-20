@@ -42,6 +42,7 @@ pids
 
 # Optional npm cache directory
 .npm
+.pnpm-store/
 
 # dotenv environment variable files
 .env

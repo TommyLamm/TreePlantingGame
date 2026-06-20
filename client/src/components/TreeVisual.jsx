@@ -11,7 +11,7 @@ function seededRandom(seed) {
     };
 }
 
-export const TreeVisual = ({ level, eventType, skin, isStatic = false }) => {
+export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather = 'sunny', isStatic = false }) => {
     const safeLevel = Number(level) || 1;
     const centerX = 150;
     const baseY = 390;
@@ -138,6 +138,72 @@ export const TreeVisual = ({ level, eventType, skin, isStatic = false }) => {
         fShadow = '#E65100';
         fEdge = '#FFF9C4';
     }
+
+    const visualSeason = weather === 'snowy' || season === 'winter' || skin === 'snow'
+        ? 'winter'
+        : (skin === 'cherry' ? 'spring' : (skin === 'autumn' ? 'autumn' : season));
+    const isRainyWeather = weather === 'rainy' || weather === 'stormy';
+
+    const crownAccents = useMemo(() => {
+        if (stage < 2) return [];
+
+        const rng = seededRandom(safeLevel * 911 + visualSeason.length * 47 + (isRainyWeather ? 19 : 0));
+        const count = visualSeason === 'winter' ? 10 : (visualSeason === 'autumn' ? 12 : 8);
+
+        return Array.from({ length: count }, (_, i) => {
+            const layerFactor = rng() * 0.85;
+            const tierSpread = maxSpread * (1 - layerFactor * 0.55);
+            const x = centerX + (rng() - 0.5) * tierSpread * 1.5;
+            const y = foliageBottomY - layerFactor * fHeight - 12 - rng() * 22;
+
+            return {
+                id: `accent-${i}`,
+                x,
+                y,
+                size: 5 + rng() * 6,
+                rotate: -45 + rng() * 90,
+                delay: rng() * 3.5,
+                opacity: 0.48 + rng() * 0.34,
+            };
+        });
+    }, [safeLevel, stage, visualSeason, isRainyWeather, maxSpread, foliageBottomY, fHeight]);
+
+    const renderCrownAccent = (accent) => {
+        if (visualSeason === 'winter') {
+            return (
+                <circle
+                    cx="0"
+                    cy="0"
+                    r={accent.size * 0.65}
+                    fill="#F8FBFF"
+                    opacity={accent.opacity}
+                    filter={isStatic ? undefined : "drop-shadow(0 1px 2px rgba(148, 163, 184, 0.35))"}
+                />
+            );
+        }
+
+        if (visualSeason === 'spring') {
+            return (
+                <>
+                    <ellipse cx="0" cy="0" rx={accent.size * 0.52} ry={accent.size} fill="#F8BBD0" opacity={accent.opacity} />
+                    <ellipse cx={accent.size * 0.36} cy={accent.size * 0.16} rx={accent.size * 0.28} ry={accent.size * 0.5} fill="#FFE4EE" opacity={accent.opacity * 0.8} />
+                </>
+            );
+        }
+
+        const fill = visualSeason === 'autumn' ? '#F59E0B' : '#77B255';
+        const stroke = visualSeason === 'autumn' ? '#B45309' : '#3F7D32';
+        return (
+            <>
+                <path
+                    d={`M0 ${-accent.size} C${accent.size} ${-accent.size * 0.4} ${accent.size * 0.75} ${accent.size * 0.72} 0 ${accent.size} C${-accent.size * 0.82} ${accent.size * 0.36} ${-accent.size * 0.72} ${-accent.size * 0.55} 0 ${-accent.size}Z`}
+                    fill={fill}
+                    opacity={accent.opacity}
+                />
+                <path d={`M0 ${-accent.size * 0.72} L0 ${accent.size * 0.72}`} stroke={stroke} strokeWidth="0.8" opacity={accent.opacity * 0.75} strokeLinecap="round" />
+            </>
+        );
+    };
 
     // Generate a natural wavy pine layer path
     const generatePineLayerPath = useMemo(() => {
@@ -731,6 +797,39 @@ export const TreeVisual = ({ level, eventType, skin, isStatic = false }) => {
                         return layers;
                     })()}
                 </g>
+
+                {stage >= 2 && (
+                    <g className="tree-season-accents" opacity={isStatic ? 0.55 : 1}>
+                        {crownAccents.map((accent) => (
+                            <g key={accent.id} transform={`translate(${accent.x}, ${accent.y}) rotate(${accent.rotate})`}>
+                                <g
+                                    className={isStatic ? '' : `tree-accent-motion tree-accent-${visualSeason}`}
+                                    style={isStatic ? {} : { animationDelay: `${accent.delay}s` }}
+                                >
+                                    {renderCrownAccent(accent)}
+                                </g>
+                            </g>
+                        ))}
+                    </g>
+                )}
+
+                {isRainyWeather && !isStatic && stage >= 2 && (
+                    <g className="tree-rain-drops">
+                        {crownAccents.slice(0, 7).map((accent, i) => (
+                            <ellipse
+                                key={`drop-${accent.id}`}
+                                cx={accent.x + (i % 2 === 0 ? 5 : -5)}
+                                cy={accent.y + 10 + i}
+                                rx="1.6"
+                                ry="4.8"
+                                fill="#9DD9FF"
+                                opacity="0.42"
+                                className="tree-rain-drop"
+                                style={{ animationDelay: `${accent.delay + i * 0.18}s` }}
+                            />
+                        ))}
+                    </g>
+                )}
 
                 {/* Star on top for max level */}
                 {isMax && !isStatic && (

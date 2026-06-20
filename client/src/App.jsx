@@ -14,6 +14,8 @@ import { LoginScreen } from './components/LoginScreen';
 import { LoadingScreen } from './components/LoadingScreen';
 import { AchievementToast } from './components/AchievementToast';
 import { Particles } from './components/Particles';
+import { EnvironmentBackdrop } from './components/EnvironmentBackdrop';
+import { CompanionSprite } from './components/CompanionSprite';
 // New components
 import { WeatherDisplay } from './components/WeatherDisplay';
 import { DailyRewardModal } from './components/DailyRewardModal';
@@ -561,7 +563,13 @@ export default function App() {
     return (
         <div className={`fixed inset-0 flex flex-col items-center font-sans transition-colors duration-1000 ${isDay ? 'bg-gradient-to-b from-blue-200 to-blue-100' : 'bg-gradient-to-b from-indigo-900 to-slate-800 text-white'} overflow-hidden`}>
 
-            <Particles isDay={isDay} />
+            <EnvironmentBackdrop
+                isDay={isDay}
+                weather={game.weather}
+                season={game.season}
+                goldenHourActive={goldenHourActive}
+            />
+            <Particles isDay={isDay} weather={game.weather} season={game.season} />
 
             {/* Achievement Toasts */}
             {achievementQueue.length > 0 && (
@@ -756,19 +764,31 @@ export default function App() {
 
                 {/* Visual Action Bursts */}
                 {actionBursts.map(burst => (
-                    <div key={burst.id} className="absolute z-40 pointer-events-none animate-burst" style={{ left: burst.x, top: burst.y, transform: 'translate(-50%, -50%)' }}>
+                    <div key={burst.id} className={`absolute z-40 pointer-events-none animate-burst action-burst action-burst-${burst.type.toLowerCase()}`} style={{ left: burst.x, top: burst.y, transform: 'translate(-50%, -50%)' }}>
                         {burst.type === 'WATER' && <Droplets size={32} className="text-blue-400 drop-shadow-md" />}
                         {burst.type === 'PEST' && <Bug size={32} className="text-red-400 drop-shadow-md" />}
                         {burst.type === 'FERTILIZE' && <Shovel size={32} className="text-yellow-400 drop-shadow-md" />}
                         {burst.type === 'PRUNE' && <Scissors size={32} className="text-green-400 drop-shadow-md" />}
                         {burst.type === 'SUNLIGHT' && <SunMedium size={32} className="text-orange-400 drop-shadow-md" />}
                         {burst.type === 'STORM' && <CloudLightning size={32} className="text-purple-400 drop-shadow-md" />}
+                        <div className="action-burst-particles" aria-hidden="true">
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <span key={i} style={{ '--burst-angle': `${i * 60}deg`, '--burst-distance': `${22 + i * 4}px` }} />
+                            ))}
+                        </div>
                         <div className="text-sm font-bold text-white drop-shadow-md text-center mt-1">+XP</div>
                     </div>
                 ))}
 
                 <div className={`flex-1 w-full min-h-0 relative z-10 mb-4 cursor-pointer transition-transform ${shakeAnim ? 'animate-wiggle' : ''}`} onClick={handleShakeTree}>
-                    <MemoizedTree level={game.level} eventType={game.activeEvent} skin={game.inventory?.treeSkin} />
+                    <MemoizedTree
+                        level={game.level}
+                        eventType={game.activeEvent}
+                        skin={game.inventory?.treeSkin}
+                        season={game.season}
+                        weather={game.weather}
+                    />
+                    <CompanionSprite companion={game.companion} isDay={isDay} />
                 </div>
 
                 {/* Bottom panel */}

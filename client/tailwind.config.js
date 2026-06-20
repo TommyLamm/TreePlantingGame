@@ -18,6 +18,14 @@ export default {
         'level-up-bounce': 'level-up-bounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
         'loading-bar': 'loading-bar 2s ease-in-out infinite',
         'wiggle': 'wiggle 0.5s ease-in-out',
+        'leaf-swing': 'leaf-swing 3.4s ease-in-out infinite',
+        'leaf-drift': 'ambient-leaf-drift 14s linear infinite',
+        'bird-cross': 'bird-cross 24s linear infinite',
+        'ambient-glow': 'ambient-glow 8s ease-in-out infinite',
+        'rain-streak': 'ambient-rain-fall 1.8s linear infinite',
+        'snow-drift': 'ambient-snow-drift 18s linear infinite',
+        'butterfly-flutter': 'companion-butterfly-path 8.5s ease-in-out infinite',
+        'companion-hop': 'companion-hop 4.8s ease-in-out infinite',
       },
       keyframes: {
         'bounce-slow': {
@@ -68,7 +76,44 @@ export default {
           '40%': { transform: 'rotate(3deg)' },
           '60%': { transform: 'rotate(-2deg)' },
           '80%': { transform: 'rotate(2deg)' },
-        }
+        },
+        'leaf-swing': {
+          '0%, 100%': { transform: 'translate3d(0, 0, 0) rotate(-7deg)' },
+          '50%': { transform: 'translate3d(2px, 3px, 0) rotate(8deg)' },
+        },
+        'ambient-leaf-drift': {
+          '0%': { transform: 'translate3d(0, -18vh, 0) rotate(0deg)', opacity: '0' },
+          '12%, 84%': { opacity: '.7' },
+          '100%': { transform: 'translate3d(120px, 118vh, 0) rotate(340deg)', opacity: '0' },
+        },
+        'bird-cross': {
+          '0%': { transform: 'translate3d(-10vw, 0, 0) scale(.72)' },
+          '100%': { transform: 'translate3d(112vw, -20px, 0) scale(.72)' },
+        },
+        'ambient-glow': {
+          '0%, 100%': { opacity: '.78', transform: 'scale(1)' },
+          '50%': { opacity: '1', transform: 'scale(1.04)' },
+        },
+        'ambient-rain-fall': {
+          '0%': { transform: 'translate3d(0, -24vh, 0) rotate(10deg)', opacity: '0' },
+          '14%, 82%': { opacity: '.7' },
+          '100%': { transform: 'translate3d(40px, 116vh, 0) rotate(10deg)', opacity: '0' },
+        },
+        'ambient-snow-drift': {
+          '0%': { transform: 'translate3d(0, -20vh, 0)', opacity: '0' },
+          '10%, 88%': { opacity: '.7' },
+          '100%': { transform: 'translate3d(80px, 112vh, 0)', opacity: '0' },
+        },
+        'companion-butterfly-path': {
+          '0%, 100%': { transform: 'translate3d(-12px, 0, 0) rotate(-6deg)' },
+          '35%': { transform: 'translate3d(18px, -24px, 0) rotate(7deg)' },
+          '70%': { transform: 'translate3d(-4px, -42px, 0) rotate(-3deg)' },
+        },
+        'companion-hop': {
+          '0%, 18%, 100%': { transform: 'translate3d(0, 0, 0) rotate(0deg)' },
+          '8%': { transform: 'translate3d(0, -12px, 0) rotate(-4deg)' },
+          '14%': { transform: 'translate3d(6px, 0, 0) rotate(3deg)' },
+        },
       }
     },
   },
