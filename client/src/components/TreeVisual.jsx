@@ -81,6 +81,30 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
     const foliageTopY = stage === 1 ? baseY - 30 : treeTopY - 50 - (stage * 18);
     const fHeight = stage === 1 ? 0 : foliageBottomY - foliageTopY;
 
+    const pineLayers = useMemo(() => {
+        if (stage < 2 || numLayers <= 0) return [];
+
+        return Array.from({ length: numLayers }, (_, i) => {
+            const layerFactor = numLayers > 1 ? i / (numLayers - 1) : 0.5;
+            const tierY = foliageBottomY - layerFactor * fHeight;
+            const isTopLayer = i === numLayers - 1;
+            const width = maxSpread * (1 - layerFactor * 0.75) * 2;
+            const height = (fHeight / numLayers) * (isTopLayer ? 1.4 : 1.2);
+            const droopFactor = isTopLayer ? 0.05 : 0.18;
+
+            return {
+                index: i,
+                layerFactor,
+                tierY,
+                isTopLayer,
+                width,
+                height,
+                tipY: tierY - height,
+                baseY: tierY + height * droopFactor,
+            };
+        });
+    }, [stage, numLayers, foliageBottomY, fHeight, maxSpread]);
+
     // 3. Dynamic viewBox
     const absoluteTop = stage === 1 ? baseY - 80 : foliageTopY - 40;
     const vbY = Math.min(-50, absoluteTop - 80 - stage * 10);
@@ -145,16 +169,17 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
     const isRainyWeather = weather === 'rainy' || weather === 'stormy';
 
     const crownAccents = useMemo(() => {
-        if (stage < 2) return [];
+        if (stage < 2 || pineLayers.length === 0) return [];
 
         const rng = seededRandom(safeLevel * 911 + visualSeason.length * 47 + (isRainyWeather ? 19 : 0));
         const count = visualSeason === 'winter' ? 10 : (visualSeason === 'autumn' ? 12 : 8);
 
         return Array.from({ length: count }, (_, i) => {
-            const layerFactor = rng() * 0.85;
-            const tierSpread = maxSpread * (1 - layerFactor * 0.55);
-            const x = centerX + (rng() - 0.5) * tierSpread * 1.5;
-            const y = foliageBottomY - layerFactor * fHeight - 12 - rng() * 22;
+            const layer = pineLayers[Math.floor(rng() * pineLayers.length)];
+            const verticalT = 0.35 + rng() * 0.46;
+            const halfWidth = (layer.width / 2) * verticalT * 0.72;
+            const x = centerX + (rng() - 0.5) * halfWidth * 2;
+            const y = layer.tipY + (layer.baseY - layer.tipY) * verticalT;
 
             return {
                 id: `accent-${i}`,
@@ -166,7 +191,7 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
                 opacity: 0.48 + rng() * 0.34,
             };
         });
-    }, [safeLevel, stage, visualSeason, isRainyWeather, maxSpread, foliageBottomY, fHeight]);
+    }, [safeLevel, stage, visualSeason, isRainyWeather, pineLayers]);
 
     const renderCrownAccent = (accent) => {
         if (visualSeason === 'winter') {
@@ -285,18 +310,18 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
     const BranchTips = ({ cx, cy, spread, seed }) => {
         const rng = seededRandom(seed);
         const tips = [];
-        const count = Math.min(4, 2 + Math.floor(spread / 50));
+        const count = Math.min(3, 1 + Math.floor(spread / 70));
         for (let i = 0; i < count; i++) {
             const side = i % 2 === 0 ? -1 : 1;
-            const x = cx + side * (spread * 0.3 + rng() * spread * 0.25);
-            const y = cy + rng() * 8 - 4;
-            const len = 8 + rng() * 14;
-            const droop = 3 + rng() * 5;
+            const x = cx + side * (Math.min(spread * 0.16, 20) + rng() * Math.min(spread * 0.12, 18));
+            const y = cy + rng() * 6 - 3;
+            const len = 6 + rng() * 9;
+            const droop = 2 + rng() * 4;
             tips.push(
                 <path key={i}
                     d={`M${x} ${y} Q${x + side * len * 0.6} ${y + droop * 0.5} ${x + side * len} ${y + droop}`}
-                    stroke={trunkColorMain} strokeWidth={1.5 + rng()} fill="none" strokeLinecap="round"
-                    opacity="0.7" />
+                    stroke={trunkColorMain} strokeWidth={1.1 + rng() * 0.5} fill="none" strokeLinecap="round"
+                    opacity="0.42" />
             );
         }
         return <g>{tips}</g>;
@@ -714,30 +739,23 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
                     {(() => {
                         const layers = [];
 
-                        for (let i = 0; i < numLayers; i++) {
-                            const layerFactor = numLayers > 1 ? i / (numLayers - 1) : 0.5;
-                            const tierY = foliageBottomY - layerFactor * fHeight;
-                            const isTopLayer = (i === numLayers - 1);
-
-                            const layerWidth = maxSpread * (1 - layerFactor * 0.75) * 2;
-                            const layerHeight = (fHeight / numLayers) * (isTopLayer ? 1.4 : 1.2);
-
-                            if (i > 0 && i < numLayers && stage >= 3) {
+                        for (const layer of pineLayers) {
+                            if (layer.index > 0 && layer.index < numLayers && stage >= 3) {
                                 layers.push(
-                                    <BranchTips key={`bt-${i}`}
-                                        cx={centerX} cy={tierY + layerHeight * 0.3}
-                                        spread={layerWidth * 0.5} seed={safeLevel * 100 + i * 37} />
+                                    <BranchTips key={`bt-${layer.index}`}
+                                        cx={centerX} cy={layer.tierY + layer.height * 0.24}
+                                        spread={layer.width * 0.45} seed={safeLevel * 100 + layer.index * 37} />
                                 );
                             }
 
                             layers.push(
-                                <PineLayer key={`layer-${i}`}
-                                    cx={centerX} cy={tierY}
-                                    width={layerWidth} height={layerHeight}
-                                    delay={(i * 300) % 2000}
-                                    seed={safeLevel * 50 + i * 17}
-                                    isTop={isTopLayer}
-                                    layerIndex={i} />
+                                <PineLayer key={`layer-${layer.index}`}
+                                    cx={centerX} cy={layer.tierY}
+                                    width={layer.width} height={layer.height}
+                                    delay={(layer.index * 300) % 2000}
+                                    seed={safeLevel * 50 + layer.index * 17}
+                                    isTop={layer.isTopLayer}
+                                    layerIndex={layer.index} />
                             );
                         }
 
@@ -746,11 +764,13 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
                             const numCones = Math.min(5, Math.floor((safeLevel - 10) / 4));
                             for (let i = 0; i < numCones; i++) {
                                 const rng = seededRandom(safeLevel * 200 + i * 43);
-                                const layerFactor = 0.1 + rng() * 0.5;
-                                const cy = foliageBottomY - layerFactor * fHeight;
-                                const tierSpread = maxSpread * (1 - layerFactor * 0.75);
+                                const coneLayers = pineLayers.slice(0, Math.max(1, pineLayers.length - 1));
+                                const layer = coneLayers[Math.floor(rng() * coneLayers.length)];
+                                const verticalT = 0.52 + rng() * 0.24;
+                                const halfWidth = (layer.width / 2) * verticalT * 0.58;
                                 const side = i % 2 === 0 ? -1 : 1;
-                                const cx = centerX + side * (tierSpread * 0.7 + rng() * tierSpread * 0.2);
+                                const cx = centerX + side * (halfWidth * (0.35 + rng() * 0.45));
+                                const cy = layer.tipY + (layer.baseY - layer.tipY) * verticalT;
 
                                 layers.push(
                                     <g key={`cone-${i}`} transform={`translate(${cx}, ${cy})`}
@@ -772,10 +792,11 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
                             const numBlossoms = Math.min(10, safeLevel - 8);
                             for (let i = 0; i < numBlossoms; i++) {
                                 const rng = seededRandom(safeLevel * 300 + i * 29);
-                                const layerFactor = rng() * 0.8;
-                                const cy = foliageBottomY - layerFactor * fHeight - rng() * 15;
-                                const tierSpread = maxSpread * (1 - layerFactor * 0.75);
-                                const cx = centerX + (rng() - 0.5) * tierSpread * 1.6;
+                                const layer = pineLayers[Math.floor(rng() * pineLayers.length)];
+                                const verticalT = 0.32 + rng() * 0.5;
+                                const halfWidth = (layer.width / 2) * verticalT * 0.72;
+                                const cx = centerX + (rng() - 0.5) * halfWidth * 2;
+                                const cy = layer.tipY + (layer.baseY - layer.tipY) * verticalT;
                                 const size = 3 + rng() * 3;
 
                                 layers.push(
