@@ -8,6 +8,66 @@
 - 若任務被拆分，新增子 checkbox，不要刪除原任務。
 - 若某項不做，改成 `[~]` 並寫明原因。
 
+## 嚴格角色邊界
+
+這份 plan 是多 agent 交接文件，不是單一 agent 的完整待辦。每個 agent 只能執行並勾選自己角色標記的項目。
+
+### Coder 只能做什麼
+
+Coder 的任務是實作視覺改動。Coder 只能處理標記為 `【Coder】` 的 checkbox。
+
+Coder 可以：
+
+- 修改指定的產品程式碼與 CSS。
+- 新增必要的視覺 class、DOM layer、樣式 token。
+- 在本機執行 build 或打開畫面做自我檢查，但只能把結果寫在自己的 Coder 備註裡。
+
+Coder 不可以：
+
+- 勾選 `【Tester】` 或 `【Reviewer】` 任務。
+- 代替 Tester 產出測試結論、截圖矩陣或正式 QA 報告。
+- 代替 Reviewer 做 code review 結論。
+- 擴大範圍到本 plan 沒有指定的重構、遊戲規則、API、資料結構或資產管線。
+
+### Tester 只能做什麼
+
+Tester 的任務是驗證結果。Tester 只能處理標記為 `【Tester】` 的 checkbox。
+
+Tester 可以：
+
+- 執行 build、啟動 server、截圖、檢查 browser console。
+- 補充測試結果、失敗原因、重現步驟。
+
+Tester 不可以：
+
+- 直接修程式碼，除非使用者明確改派 tester 兼任修復。
+- 勾選 `【Coder】` 或 `【Reviewer】` 任務。
+- 將未驗證的項目標記為完成。
+
+### Reviewer 只能做什麼
+
+Reviewer 的任務是審查最終 diff。Reviewer 只能處理標記為 `【Reviewer】` 的 checkbox。
+
+Reviewer 可以：
+
+- 檢查實作是否符合本 plan、是否有回歸風險、是否缺驗證。
+- 提出 findings，要求 Coder 或 Tester 補做。
+
+Reviewer 不可以：
+
+- 直接替 Coder 補實作。
+- 直接替 Tester 跑完整 QA 並勾選 Tester 任務。
+- 把「看起來可以」當成驗證通過。
+
+### 執行口令解讀
+
+如果使用者對某個 agent 說「完成這個 plan 裏面你負責的部分」：
+
+- Coder：只完成 `【Coder】` 任務。
+- Tester：只完成 `【Tester】` 任務。
+- Reviewer：只完成 `【Reviewer】` 任務。
+- 任何 agent 都不得因為其他角色任務尚未完成而自行接手。
+
 ## 視覺目標
 
 把目前的畫面從「功能完整的 garden UI」推進到「有層次的立體小花園場景」。核心方向是 **layered arboretum diorama**：背景有天氣與時間氛圍，中景有樹與 companion 的明確舞台，前景 UI 像半透明園藝工具盤，不遮住樹木主體。
@@ -55,11 +115,13 @@
 
 ## 實作計劃
 
+所有 checkbox 都必須有明確角色標記。沒有自己角色標記的任務，當前 agent 只能閱讀，不能執行或勾選。
+
 ### 1. Baseline 與截圖基準
 
-- [ ] Coder：先不改程式，啟動 app 並截圖目前主畫面桌面版與手機版，保存到臨時或 reviewer 指定位置。
-- [ ] Coder：記錄至少 5 個狀態的視覺基準：day/sunny/spring、night/sunny、rainy、stormy、snowy 或 winter。
-- [ ] Tester：確認目前 console 是否已有 missing asset 404 或 runtime error，避免把既有問題混入改版結果。
+- [ ] 【Coder】先不改程式，啟動 app 並截圖目前主畫面桌面版與手機版，保存到臨時或 reviewer 指定位置。
+- [ ] 【Coder】記錄至少 5 個狀態的視覺基準：day/sunny/spring、night/sunny、rainy、stormy、snowy 或 winter。
+- [ ] 【Tester】確認目前 console 是否已有 missing asset 404 或 runtime error，避免把既有問題混入改版結果。
 
 交付物：
 
@@ -70,10 +132,10 @@
 
 目標是讓後續改動有一致色彩與層級，不把顏色散落到 JSX class 裡。
 
-- [ ] Coder：在 `client/src/index.css` 增加 `:root` token，例如 scene、weather、panel、accent 色彩與 shadow。
-- [ ] Coder：新增少量語義 class，例如 `.game-shell`、`.glass-panel`、`.scene-layer`；只替換主畫面最需要統一的地方。
-- [ ] Coder：保留 Tailwind class 為布局工具，不把全專案重構成 CSS class。
-- [ ] Reviewer：檢查 token 是否真的被使用，避免只是新增未用變數。
+- [ ] 【Coder】在 `client/src/index.css` 增加 `:root` token，例如 scene、weather、panel、accent 色彩與 shadow。
+- [ ] 【Coder】新增少量語義 class，例如 `.game-shell`、`.glass-panel`、`.scene-layer`；只替換主畫面最需要統一的地方。
+- [ ] 【Coder】保留 Tailwind class 為布局工具，不把全專案重構成 CSS class。
+- [ ] 【Reviewer】檢查 token 是否真的被使用，避免只是新增未用變數。
 
 主要檔案：
 
@@ -82,18 +144,18 @@
 
 驗收：
 
-- [ ] `cd client && npm run build` 成功。
-- [ ] 主畫面日夜兩套 UI 對比仍可讀。
+- [ ] 【Tester】`cd client && npm run build` 成功。
+- [ ] 【Tester】主畫面日夜兩套 UI 對比仍可讀。
 
 ### 3. 強化背景層次與天氣氛圍
 
 目標是讓背景不只是靜態 PNG，而是有深度的花園舞台。
 
-- [ ] Coder：在 `EnvironmentBackdrop.jsx` 加入語義化 overlay 容器，例如遠景霧、光束、前景暗角；用 CSS 控制，不新增大量 DOM。
-- [ ] Coder：日間增加柔和太陽光方向；夜間加低亮度月光與星光層，避免整體過暗。
-- [ ] Coder：rainy/stormy/snowy 使用不同 overlay：雨天地面反光、暴風閃光、冬季雪堆。
-- [ ] Coder：golden hour 使用暖色調但不要讓 UI 文字泛黃失去對比。
-- [ ] Tester：用截圖比對 5 種 weather/season 狀態，確認效果能辨識且不遮工具列。
+- [ ] 【Coder】在 `EnvironmentBackdrop.jsx` 加入語義化 overlay 容器，例如遠景霧、光束、前景暗角；用 CSS 控制，不新增大量 DOM。
+- [ ] 【Coder】日間增加柔和太陽光方向；夜間加低亮度月光與星光層，避免整體過暗。
+- [ ] 【Coder】rainy/stormy/snowy 使用不同 overlay：雨天地面反光、暴風閃光、冬季雪堆。
+- [ ] 【Coder】golden hour 使用暖色調但不要讓 UI 文字泛黃失去對比。
+- [ ] 【Tester】用截圖比對 5 種 weather/season 狀態，確認效果能辨識且不遮工具列。
 
 主要檔案：
 
@@ -102,18 +164,18 @@
 
 驗收：
 
-- [ ] sunny、rainy、stormy、snowy 都有可見差異。
-- [ ] 手機版背景不裁掉樹的主要視覺區。
+- [ ] 【Tester】sunny、rainy、stormy、snowy 都有可見差異。
+- [ ] 【Tester】手機版背景不裁掉樹的主要視覺區。
 
 ### 4. 打磨樹木主場景
 
 目標是讓樹和地面融成一個完整場景，而不是圖片疊在背景上。
 
-- [ ] Coder：在 `TreeVisual.jsx` 增加地面 halo / shadow / foreground vegetation 的 DOM 或 CSS pseudo-layer。
-- [ ] Coder：每個 stage 的地面 scale、shadow、decor 密度逐步變化，stage 1 不要過度裝飾，stage 7 要有成熟感。
-- [ ] Coder：level up 時新增短暫光環或葉片 burst，避免只靠 scale bounce。
-- [ ] Coder：`isStatic` 模式仍要適合 collection / garden visit modal，不套用過多 ambient 動畫。
-- [ ] Reviewer：檢查 `TreeVisual` 被 `App.jsx`、`CollectionModal.jsx`、`GardenVisitModal.jsx` 使用，確保靜態場景沒有被主畫面專用樣式污染。
+- [ ] 【Coder】在 `TreeVisual.jsx` 增加地面 halo / shadow / foreground vegetation 的 DOM 或 CSS pseudo-layer。
+- [ ] 【Coder】每個 stage 的地面 scale、shadow、decor 密度逐步變化，stage 1 不要過度裝飾，stage 7 要有成熟感。
+- [ ] 【Coder】level up 時新增短暫光環或葉片 burst，避免只靠 scale bounce。
+- [ ] 【Coder】`isStatic` 模式仍要適合 collection / garden visit modal，不套用過多 ambient 動畫。
+- [ ] 【Reviewer】檢查 `TreeVisual` 被 `App.jsx`、`CollectionModal.jsx`、`GardenVisitModal.jsx` 使用，確保靜態場景沒有被主畫面專用樣式污染。
 
 主要檔案：
 
@@ -122,18 +184,18 @@
 
 驗收：
 
-- [ ] stage 1、3、5、7 在截圖中有明確視覺差異。
-- [ ] modal 內的 `TreeVisual` 不溢出、不遮文字。
+- [ ] 【Tester】stage 1、3、5、7 在截圖中有明確視覺差異。
+- [ ] 【Tester】modal 內的 `TreeVisual` 不溢出、不遮文字。
 
 ### 5. 調整粒子與環境生命感
 
 目標是增加自然感，同時控制效能。
 
-- [ ] Coder：在 `Particles.jsx` 調整粒子密度與速度，桌面與手機都不要過量。
-- [ ] Coder：spring petals、autumn leaves、winter snow、summer motes 的形狀/透明度/路徑拉開差異。
-- [ ] Coder：stormy 狀態要有低頻強動作，rainy 狀態要有穩定細雨，不要兩者看起來相同。
-- [ ] Coder：所有新增動畫都納入 `@media (prefers-reduced-motion: reduce)`。
-- [ ] Tester：觀察 60 秒內沒有粒子堆積、卡頓或 layout shift。
+- [ ] 【Coder】在 `Particles.jsx` 調整粒子密度與速度，桌面與手機都不要過量。
+- [ ] 【Coder】spring petals、autumn leaves、winter snow、summer motes 的形狀/透明度/路徑拉開差異。
+- [ ] 【Coder】stormy 狀態要有低頻強動作，rainy 狀態要有穩定細雨，不要兩者看起來相同。
+- [ ] 【Coder】所有新增動畫都納入 `@media (prefers-reduced-motion: reduce)`。
+- [ ] 【Tester】觀察 60 秒內沒有粒子堆積、卡頓或 layout shift。
 
 主要檔案：
 
@@ -142,18 +204,18 @@
 
 驗收：
 
-- [ ] reduced motion 下不再播放漂浮/閃爍/快速移動動畫。
-- [ ] 常態畫面 DOM 粒子數量可控，手機不明顯卡頓。
+- [ ] 【Tester】reduced motion 下不再播放漂浮/閃爍/快速移動動畫。
+- [ ] 【Tester】常態畫面 DOM 粒子數量可控，手機不明顯卡頓。
 
 ### 6. 改進操作事件回饋
 
 目標是讓玩家知道自己做了什麼、作用在哪裡、是否與目前事件匹配。
 
-- [ ] Coder：把 `App.jsx` 中 `actionBursts` 的固定 `+XP` 改成依 action 類型的短 label 或圖形，例如 water splash、prune leaves、sun ray、storm charge。
-- [ ] Coder：讓 burst 位置更貼近樹冠、樹根或事件 icon，不全部集中在畫面中央。
-- [ ] Coder：在 `TreeVisual.jsx` 的 `eventType` overlay 加入不同事件的微場景反應，例如 pest 在樹冠、fertilize 在地面、sunlight 在上方。
-- [ ] Coder：避免新增需要 server 回傳的新狀態；只用現有 `actionType`、`activeEvent`、`weather`、`season`。
-- [ ] Tester：逐一觸發 WATER、PEST、FERTILIZE、PRUNE、SUNLIGHT、STORM，確認 icon、粒子和位置匹配。
+- [ ] 【Coder】把 `App.jsx` 中 `actionBursts` 的固定 `+XP` 改成依 action 類型的短 label 或圖形，例如 water splash、prune leaves、sun ray、storm charge。
+- [ ] 【Coder】讓 burst 位置更貼近樹冠、樹根或事件 icon，不全部集中在畫面中央。
+- [ ] 【Coder】在 `TreeVisual.jsx` 的 `eventType` overlay 加入不同事件的微場景反應，例如 pest 在樹冠、fertilize 在地面、sunlight 在上方。
+- [ ] 【Coder】避免新增需要 server 回傳的新狀態；只用現有 `actionType`、`activeEvent`、`weather`、`season`。
+- [ ] 【Tester】逐一觸發 WATER、PEST、FERTILIZE、PRUNE、SUNLIGHT、STORM，確認 icon、粒子和位置匹配。
 
 主要檔案：
 
@@ -163,18 +225,18 @@
 
 驗收：
 
-- [ ] 6 種 action 在視覺上能被區分。
-- [ ] burst 不遮住底部 action buttons。
+- [ ] 【Tester】6 種 action 在視覺上能被區分。
+- [ ] 【Tester】burst 不遮住底部 action buttons。
 
 ### 7. UI 面板與工具列視覺整理
 
 目標是讓 UI 更精緻，但不把畫面變成卡片堆疊。
 
-- [ ] Coder：整理右上工具列，減少多排按鈕造成的視覺噪音；保持所有功能可達。
-- [ ] Coder：底部狀態面板使用新的 glass token，降低過大陰影，提升 XP 條質感。
-- [ ] Coder：`ActionButton.jsx` 增加 active state 的視覺權重，disabled state 要清楚但不要像錯誤狀態。
-- [ ] Coder：`WeatherDisplay.jsx` 可增加文字 tooltip/title 或更清楚的 compact badge，但不要佔更多主畫面高度。
-- [ ] Tester：在 360px、390px、768px、1280px 寬度檢查沒有 overlap、截斷或不可點擊。
+- [ ] 【Coder】整理右上工具列，減少多排按鈕造成的視覺噪音；保持所有功能可達。
+- [ ] 【Coder】底部狀態面板使用新的 glass token，降低過大陰影，提升 XP 條質感。
+- [ ] 【Coder】`ActionButton.jsx` 增加 active state 的視覺權重，disabled state 要清楚但不要像錯誤狀態。
+- [ ] 【Coder】`WeatherDisplay.jsx` 可增加文字 tooltip/title 或更清楚的 compact badge，但不要佔更多主畫面高度。
+- [ ] 【Tester】在 360px、390px、768px、1280px 寬度檢查沒有 overlap、截斷或不可點擊。
 
 主要檔案：
 
@@ -185,17 +247,17 @@
 
 驗收：
 
-- [ ] 手機寬度下樹仍是主視覺焦點。
-- [ ] 底部事件區在有/無 active event 時高度穩定。
+- [ ] 【Tester】手機寬度下樹仍是主視覺焦點。
+- [ ] 【Tester】底部事件區在有/無 active event 時高度穩定。
 
 ### 8. Mini game 與 modal 視覺一致化
 
 目標是讓 mini game 不像另一套臨時 UI。
 
-- [ ] Coder：`MiniGameModal.jsx` 的 memory cards 改成和樹/季節一致的材質與色彩。
-- [ ] Coder：Quick Water 背景加入簡單場景層，例如水面、草地、雨滴命中回饋。
-- [ ] Coder：modal header 使用相同 token，避免每個 modal 使用不同漸層風格。
-- [ ] Reviewer：確認這一步沒有改動遊戲規則、分數公式或 reward API。
+- [ ] 【Coder】`MiniGameModal.jsx` 的 memory cards 改成和樹/季節一致的材質與色彩。
+- [ ] 【Coder】Quick Water 背景加入簡單場景層，例如水面、草地、雨滴命中回饋。
+- [ ] 【Coder】modal header 使用相同 token，避免每個 modal 使用不同漸層風格。
+- [ ] 【Reviewer】確認這一步沒有改動遊戲規則、分數公式或 reward API。
 
 主要檔案：
 
@@ -204,18 +266,18 @@
 
 驗收：
 
-- [ ] memory game 和 quick water game 視覺上屬於同一個 garden world。
-- [ ] 遊戲完成 callback 與 reward 流程不變。
+- [ ] 【Tester】memory game 和 quick water game 視覺上屬於同一個 garden world。
+- [ ] 【Tester】遊戲完成 callback 與 reward 流程不變。
 
 ### 9. 視覺 QA 與回歸驗證
 
-- [ ] Tester：執行 `cd client && npm run build`。
-- [ ] Tester：若 Chrome DevTools endpoint 可用，執行 `node scripts/capture-game-screenshot.mjs` 產出主畫面截圖。
-- [ ] Tester：啟動 `node server.js`，用 `http://127.0.0.1:7777` 檢查 production build。
-- [ ] Tester：檢查 browser console，確認沒有 missing PNG 404、React warning、runtime error。
-- [ ] Tester：檢查日/夜、5 種 weather、4 種 season、6 種 action、至少 2 個 companion。
-- [ ] Tester：檢查 `prefers-reduced-motion: reduce` 下動畫被降級。
-- [ ] Reviewer：以 code review 角度檢查 diff，重點看視覺改動是否引入 layout regression、不可讀文字、過度 DOM、未清理 timer、資產路徑錯誤。
+- [ ] 【Tester】執行 `cd client && npm run build`。
+- [ ] 【Tester】若 Chrome DevTools endpoint 可用，執行 `node scripts/capture-game-screenshot.mjs` 產出主畫面截圖。
+- [ ] 【Tester】啟動 `node server.js`，用 `http://127.0.0.1:7777` 檢查 production build。
+- [ ] 【Tester】檢查 browser console，確認沒有 missing PNG 404、React warning、runtime error。
+- [ ] 【Tester】檢查日/夜、5 種 weather、4 種 season、6 種 action、至少 2 個 companion。
+- [ ] 【Tester】檢查 `prefers-reduced-motion: reduce` 下動畫被降級。
+- [ ] 【Reviewer】以 code review 角度檢查 diff，重點看視覺改動是否引入 layout regression、不可讀文字、過度 DOM、未清理 timer、資產路徑錯誤。
 
 推薦命令：
 
@@ -255,9 +317,9 @@ node scripts/capture-game-screenshot.mjs
 
 若時間有限，至少完成：
 
-- [ ] `index.css` token + reduced motion 整理。
-- [ ] `EnvironmentBackdrop` 背景層次改進。
-- [ ] `TreeVisual` 地面 halo / shadow / level-up 效果。
-- [ ] `App.jsx` action burst 分 action 視覺化。
-- [ ] `cd client && npm run build` 成功。
-- [ ] 桌面與手機各一張主畫面截圖無 overlap。
+- [ ] 【Coder】`index.css` token + reduced motion 整理。
+- [ ] 【Coder】`EnvironmentBackdrop` 背景層次改進。
+- [ ] 【Coder】`TreeVisual` 地面 halo / shadow / level-up 效果。
+- [ ] 【Coder】`App.jsx` action burst 分 action 視覺化。
+- [ ] 【Tester】`cd client && npm run build` 成功。
+- [ ] 【Tester】桌面與手機各一張主畫面截圖無 overlap。
