@@ -78,7 +78,7 @@ export function ProfileModal({
                         <User size={24} />
                         <h2 className="text-xl font-bold">{t('profile')}</h2>
                     </div>
-                    <div className="absolute inset-0 bg-white/10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xNSkiLz48L3N2Zz4=')] bg-repeat opacity-50 mix-blend-overlay"></div>
+                    <div className="absolute inset-0 bg-white/10 asset-dot-pattern opacity-50 mix-blend-overlay"></div>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1 bg-gray-50 flex flex-col gap-6">

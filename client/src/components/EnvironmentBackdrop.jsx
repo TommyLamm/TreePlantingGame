@@ -22,8 +22,8 @@ export const EnvironmentBackdrop = ({
     goldenHourActive = false,
 }) => {
     const backgroundAsset = isDay
-        ? '/assets/environments/day-forest.svg'
-        : '/assets/environments/night-garden.svg';
+        ? '/assets/environments/day-forest.png'
+        : '/assets/environments/night-garden.png';
     const label = `${isDay ? 'Day' : 'Night'} ${weatherLabels[weather] || weather} ${seasonLabels[season] || season} garden backdrop`;
 
     return (

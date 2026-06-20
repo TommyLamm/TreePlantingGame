@@ -20,7 +20,7 @@ export function LeaderboardModal({ data, currentUser, onVisitGarden, onClose, t 
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
                 <div className="p-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white flex justify-between items-center relative overflow-hidden">
                     <h2 className="text-xl font-bold flex items-center gap-2 relative z-10">🏆 {t('leaderboard')}</h2>
-                    <div className="absolute inset-0 bg-white/10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xNSkiLz48L3N2Zz4=')] bg-repeat opacity-50 mix-blend-overlay"></div>
+                    <div className="absolute inset-0 bg-white/10 asset-dot-pattern opacity-50 mix-blend-overlay"></div>
                 </div>
 
                 <div className="p-4 overflow-y-auto flex-1 bg-gray-50 flex flex-col gap-2">
