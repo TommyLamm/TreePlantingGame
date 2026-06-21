@@ -1118,6 +1118,16 @@ app.get('/api/achievements/:username', (req, res) => {
     res.json({ achievements: dbCache[username].achievements || [] });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`\n🌱 Zen Arboretum Server running on http://localhost:${PORT}`);
+});
+
+server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+        console.error(`\n[Server] Port ${PORT} is already in use.`);
+        console.error('[Server] Another game server is probably still running.');
+        console.error(`[Server] Stop the existing process or start this one with a different port, for example: $env:PORT=7778; node server.js\n`);
+        process.exit(1);
+    }
+    throw error;
 });

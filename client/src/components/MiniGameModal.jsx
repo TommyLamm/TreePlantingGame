@@ -78,12 +78,12 @@ function MemoryGame({ onFinish, t }) {
                             key={card.id}
                             onClick={() => handleFlip(idx)}
                             disabled={isFlipped}
-                            className={`aspect-square rounded-xl text-2xl font-bold flex items-center justify-center transition-all duration-300 transform ${
+                            className={`aspect-square rounded-2xl text-2xl font-bold flex items-center justify-center transition-all duration-300 transform ${
                                 isMatched
-                                    ? 'bg-green-100 border-2 border-green-300 scale-95 shadow-inner'
+                                    ? 'bg-emerald-50 border-2 border-emerald-200 scale-95 shadow-inner opacity-75'
                                     : isFlipped
-                                    ? 'bg-white border-2 border-amber-300 shadow-md scale-105 rotate-0'
-                                    : 'bg-gradient-to-br from-emerald-400 to-teal-500 border-2 border-emerald-300 shadow-md hover:shadow-lg hover:scale-105 cursor-pointer'
+                                    ? 'bg-white border-2 border-amber-400 shadow-md scale-105 rotate-0'
+                                    : 'bg-gradient-to-br from-emerald-600 to-teal-800 text-white border-2 border-emerald-500/40 shadow-md hover:shadow-lg hover:scale-105 cursor-pointer'
                             }`}
                         >
                             {isFlipped ? (
@@ -194,12 +194,16 @@ function QuickWaterGame({ onFinish, t }) {
                     {t('timeLeft')}: {timeLeft}s
                 </span>
             </div>
-            <div className="relative w-full h-64 bg-gradient-to-b from-sky-100 to-blue-50 rounded-2xl overflow-hidden border-2 border-blue-200">
+            <div className="relative w-full h-64 bg-gradient-to-b from-sky-200/50 to-blue-100/40 rounded-2xl overflow-hidden border-2 border-blue-200/60 shadow-inner">
+                {/* Water overlay */}
+                <div className="absolute bottom-0 left-0 right-0 h-10 bg-blue-400/20 border-t border-blue-300/30 backdrop-blur-[1px]" />
+                {/* Grass ground overlay */}
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-emerald-500/25 to-green-400/10" />
                 {drops.map(drop => (
                     <button
                         key={drop.id}
                         onClick={() => catchDrop(drop.id)}
-                        className="absolute w-10 h-10 text-2xl flex items-center justify-center rounded-full bg-blue-400/20 hover:bg-blue-400/40 transition-all cursor-pointer animate-pulse hover:scale-125"
+                        className="absolute w-10 h-10 text-2xl flex items-center justify-center rounded-full bg-blue-400/25 hover:bg-blue-400/50 transition-all cursor-pointer animate-pulse hover:scale-125 z-10"
                         style={{ left: `${drop.x}%`, top: `${drop.y}%`, transform: 'translate(-50%, -50%)' }}
                     >
                         💧
@@ -243,17 +247,40 @@ export function MiniGameModal({ gamesRemaining, onReward, onClose, t }) {
         setResult(null);
     };
 
+    const handleBack = () => {
+        audio.playClick();
+        resetGame();
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300" onClick={handleBackdrop}>
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
                 {/* Header */}
-                <div className="p-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white flex justify-between items-center relative overflow-hidden">
-                    <div className="relative z-10 flex items-center gap-2">
+                <div className="p-4 bg-gradient-to-r from-[#2F6B45] to-[#458e5f] text-white flex justify-between items-center gap-3 relative overflow-hidden border-b border-emerald-800/20">
+                    <div className="relative z-10 flex items-center gap-2 min-w-0">
                         <span className="text-2xl">🎮</span>
-                        <h2 className="text-xl font-bold">{t('miniGamesTitle')}</h2>
+                        <h2 className="text-xl font-bold tracking-wide truncate">{t('miniGamesTitle')}</h2>
                     </div>
-                    <div className="relative z-10 text-sm font-bold bg-black/20 px-3 py-1 rounded-full">
-                        {t('gamesRemaining', gamesRemaining)}
+                    <div className="relative z-10 flex items-center gap-2 shrink-0">
+                        {selectedGame && !result && (
+                            <button
+                                onClick={handleBack}
+                                className="px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-xs font-bold backdrop-blur-sm transition-colors"
+                            >
+                                {t('back')}
+                            </button>
+                        )}
+                        <div className="hidden sm:block text-xs font-bold bg-black/25 px-3 py-1 rounded-full backdrop-blur-sm">
+                            {t('gamesRemaining', gamesRemaining)}
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/30 flex items-center justify-center text-lg font-bold leading-none transition-colors"
+                            aria-label={t('close')}
+                            title={t('close')}
+                        >
+                            ×
+                        </button>
                     </div>
                 </div>
 

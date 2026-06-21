@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useReducer, useMemo, useCallback, memo } from 'react';
-import { MAX_LEVEL, ACHIEVEMENT_DEFS, COMPANIONS } from './constants';
+import { MAX_LEVEL, ACHIEVEMENT_DEFS } from './constants';
 import { audio } from './utils/audio';
 import { api } from './utils/api';
 import { createTranslator } from './utils/i18n';
-import { CloudCheck, CloudOff, User, BookOpen, VolumeX, Volume2, Clock, Sun, Moon, Zap, Droplets, Bug, Shovel, Coins, ShoppingCart, Scissors, SunMedium, CloudLightning, Trophy } from './components/Icons';
+import { CloudCheck, CloudOff, User, BookOpen, VolumeX, Volume2, Clock, Zap, Droplets, Bug, Shovel, Coins, ShoppingCart, Scissors, SunMedium, CloudLightning, Trophy, Calendar, Paw, Recycle, Gamepad, StatsIcon } from './components/Icons';
 import { TreeVisual } from './components/TreeVisual';
 import { ActionButton } from './components/ActionButton';
 import { CollectionModal } from './components/CollectionModal';
@@ -274,14 +274,15 @@ export default function App() {
         // Spawn visual burst effect immediately
         const burstId = Date.now();
         let burstX = '50%';
-        if (actionType === 'WATER') burstX = '35%';
-        if (actionType === 'PEST') burstX = '42%';
-        if (actionType === 'FERTILIZE') burstX = '50%';
-        if (actionType === 'PRUNE') burstX = '58%';
-        if (actionType === 'SUNLIGHT') burstX = '65%';
-        if (actionType === 'STORM') burstX = '45%';
+        let burstY = '50%';
+        if (actionType === 'WATER') { burstX = '38%'; burstY = '68%'; }
+        else if (actionType === 'PEST') { burstX = '42%'; burstY = '45%'; }
+        else if (actionType === 'FERTILIZE') { burstX = '50%'; burstY = '72%'; }
+        else if (actionType === 'PRUNE') { burstX = '58%'; burstY = '48%'; }
+        else if (actionType === 'SUNLIGHT') { burstX = '64%'; burstY = '30%'; }
+        else if (actionType === 'STORM') { burstX = '46%'; burstY = '28%'; }
 
-        setActionBursts(prev => [...prev, { id: burstId, type: actionType, x: burstX, y: '50%' }]);
+        setActionBursts(prev => [...prev, { id: burstId, type: actionType, x: burstX, y: burstY }]);
         setTimeout(() => {
             setActionBursts(prev => prev.filter(b => b.id !== burstId));
         }, 1500);
@@ -397,7 +398,7 @@ export default function App() {
         setShowLeaderboard(true);
     }, []);
 
-    const isDay = new Date().getHours() > 6 && new Date().getHours() < 18;
+    const isClockDay = new Date().getHours() > 6 && new Date().getHours() < 18;
 
     const handleBuy = useCallback(async (itemId, price, type) => {
         try {
@@ -542,11 +543,9 @@ export default function App() {
 
     // Golden hour active?
     const goldenHourActive = Date.now() < (game.goldenHourUntil || 0);
+    const isDay = isClockDay || goldenHourActive;
 
-    // Companion emoji
-    const companionEmoji = game.companion
-        ? (COMPANIONS.find(c => c.id === game.companion)?.icon || '')
-        : '';
+    const companionAssetId = game.companion || null;
 
     // Today's minigame count
     const today = new Date().toISOString().slice(0, 10);
@@ -561,7 +560,7 @@ export default function App() {
     if (isLoading) return <LoadingScreen t={t} />;
 
     return (
-        <div className={`fixed inset-0 flex flex-col items-center font-sans transition-colors duration-1000 ${isDay ? 'bg-gradient-to-b from-blue-200 to-blue-100' : 'bg-gradient-to-b from-indigo-900 to-slate-800 text-white'} overflow-hidden`}>
+        <div className={`game-shell fixed inset-0 flex flex-col items-center font-sans transition-colors duration-1000 ${isDay ? 'bg-gradient-to-b from-blue-200 to-blue-100' : 'bg-gradient-to-b from-indigo-900 to-slate-800 text-white'} overflow-hidden`}>
 
             <EnvironmentBackdrop
                 isDay={isDay}
@@ -690,11 +689,11 @@ export default function App() {
             )}
 
             {/* Top toolbar */}
-            <div className="absolute top-3 left-3 z-30">
-                <WeatherDisplay weather={game.weather} season={game.season} isDay={isDay} />
+            <div className="top-hud-weather absolute top-3 left-3 z-30">
+                <WeatherDisplay weather={game.weather} season={game.season} isDay={isDay} t={t} />
             </div>
 
-            <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-30 items-end">
+            <div className="top-hud-actions absolute top-3 right-3 flex flex-col gap-2 z-30 items-end">
                 {/* Row 1: Status + coins + combo */}
                 <div className="flex gap-1.5 items-center">
                     <div title={serverStatus === 'connected' ? "Online" : "Offline"} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${serverStatus === 'connected' ? 'bg-white text-green-500' : 'bg-red-100 text-red-500'}`}>{serverStatus === 'connected' ? <CloudCheck size={16} /> : <CloudOff size={16} />}</div>
@@ -717,35 +716,23 @@ export default function App() {
                     </div>
                 </div>
 
-                {/* Row 2: Action buttons */}
-                <div className="flex gap-1.5 flex-wrap justify-end">
-                    <button onClick={cycleLang} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all font-bold text-[10px] ${isDay ? 'bg-white text-indigo-600 hover:bg-gray-50' : 'bg-slate-700 text-indigo-300 hover:bg-slate-600'}`}>{t('langName')}</button>
-                    <button onClick={() => { audio.playClick(); setShowProfile(true); }} title={t('profile')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all overflow-hidden ${isDay ? 'bg-white text-blue-500 hover:bg-gray-50' : 'bg-slate-700 text-blue-300 hover:bg-slate-600'}`}>
+                {/* Unified Menu Glass Panel */}
+                <div className={`top-hud-menu flex flex-wrap gap-1 p-1 rounded-2xl glass-panel border ${isDay ? 'bg-white/70 border-white/40 text-gray-700' : 'bg-slate-800/60 border-slate-700/40 text-gray-200'} max-w-[210px] sm:max-w-none justify-end`}>
+                    <button onClick={cycleLang} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 font-bold text-[10px]" title={t('langName')}>{t('langName')}</button>
+                    <button onClick={() => { audio.playClick(); setShowProfile(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 overflow-hidden" title={t('profile')}>
                         {game.profileData?.avatar ? <img src={game.profileData.avatar} alt="User" className="w-full h-full object-cover" /> : <User size={16} />}
                     </button>
-                    <button onClick={() => { audio.playClick(); setShowStore(true); }} title={t('store')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${isDay ? 'bg-white text-amber-500 hover:bg-gray-50' : 'bg-slate-700 text-amber-300 hover:bg-slate-600'}`}><ShoppingCart size={16} /></button>
-                    <button onClick={toggleCollection} title={t('collection')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${isDay ? 'bg-white text-green-600 hover:bg-gray-50' : 'bg-slate-700 text-green-300 hover:bg-slate-600'}`}><BookOpen size={16} /></button>
-                    <button onClick={handleOpenLeaderboard} title={t('leaderboard')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${isDay ? 'bg-white text-purple-600 hover:bg-gray-50' : 'bg-slate-700 text-purple-300 hover:bg-slate-600'}`}><Trophy size={16} /></button>
-                    <button onClick={toggleMute} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${!isMuted ? (isDay ? 'bg-white text-blue-500' : 'bg-slate-700 text-blue-300') : (isDay ? 'bg-gray-200 text-gray-500' : 'bg-slate-800 text-slate-500')}`}>{isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
-                </div>
-
-                {/* Row 3: New feature buttons */}
-                <div className="flex gap-1.5 flex-wrap justify-end">
-                    <button onClick={() => { audio.playClick(); setShowCompanions(true); }} title={t('companions')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                        {companionEmoji || '🐾'}
+                    <button onClick={() => { audio.playClick(); setShowStore(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-amber-500" title={t('store')}><ShoppingCart size={16} /></button>
+                    <button onClick={toggleCollection} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-green-600 dark:text-green-400" title={t('collection')}><BookOpen size={16} /></button>
+                    <button onClick={handleOpenLeaderboard} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-purple-600 dark:text-purple-400" title={t('leaderboard')}><Trophy size={16} /></button>
+                    <button onClick={() => { audio.playClick(); setShowCompanions(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('companions')}>
+                        {companionAssetId ? <img src={`/assets/companions/${companionAssetId}.png`} alt="" aria-hidden="true" className="w-6 h-6 object-contain" /> : <Paw size={16} />}
                     </button>
-                    <button onClick={() => { audio.playClick(); setShowPrestige(true); }} title={t('prestige')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                        {game.generation > 0 ? `♻️` : '♻️'}
-                    </button>
-                    <button onClick={() => { audio.playClick(); setShowMiniGames(true); }} title={t('miniGames')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                        🎮
-                    </button>
-                    <button onClick={() => { audio.playClick(); setShowStats(true); }} title={t('stats')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                        📊
-                    </button>
-                    <button onClick={() => { audio.playClick(); setShowDailyReward(true); }} title={t('dailyReward')} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all text-base ${game.dailyRewardAvailable ? 'bg-amber-400 animate-pulse' : (isDay ? 'bg-white hover:bg-gray-50' : 'bg-slate-700 hover:bg-slate-600')}`}>
-                        📅
-                    </button>
+                    <button onClick={() => { audio.playClick(); setShowPrestige(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('prestige')}><Recycle size={16} /></button>
+                    <button onClick={() => { audio.playClick(); setShowMiniGames(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('miniGames')}><Gamepad size={16} /></button>
+                    <button onClick={() => { audio.playClick(); setShowStats(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('stats')}><StatsIcon size={16} /></button>
+                    <button onClick={() => { audio.playClick(); setShowDailyReward(true); }} className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all text-base ${game.dailyRewardAvailable ? 'bg-amber-400/80 animate-pulse text-amber-950' : 'hover:bg-black/10 dark:hover:bg-white/10'}`} title={t('dailyReward')}><Calendar size={16} /></button>
+                    <button onClick={toggleMute} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-blue-500" title={t('mute')}>{isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
                 </div>
 
                 {/* Row 4: Time warp */}
@@ -754,14 +741,12 @@ export default function App() {
                 <div className={`text-[9px] text-right px-1 ${isDay ? 'text-gray-500' : 'text-gray-400'}`}>
                     {currentUser}
                     {game.generation > 0 && ` | Gen ${game.generation}`}
-                    {companionEmoji && ` ${companionEmoji}`}
+                    {companionAssetId && <img src={`/assets/companions/${companionAssetId}.png`} alt="" aria-hidden="true" className="inline-block w-4 h-4 object-contain align-[-3px] ml-1" />}
                     {' | '}{game.isDemoMode ? t('rateDemo') : t('rateNormal')}
                 </div>
             </div>
 
-            <div className="w-full max-w-md flex-1 flex flex-col relative z-10 pb-6 pt-16 px-4">
-                <div className="absolute top-8 right-10 animate-pulse-slow z-0">{isDay ? <Sun size={48} className="text-yellow-400 drop-shadow-md" /> : <Moon size={48} className="text-gray-200 drop-shadow-md" />}</div>
-
+            <div className="game-main-panel w-full max-w-md flex-1 flex flex-col relative z-10 pb-6 pt-16 px-4">
                 {/* Visual Action Bursts */}
                 {actionBursts.map(burst => (
                     <div key={burst.id} className={`absolute z-40 pointer-events-none animate-burst action-burst action-burst-${burst.type.toLowerCase()}`} style={{ left: burst.x, top: burst.y, transform: 'translate(-50%, -50%)' }}>
@@ -776,7 +761,14 @@ export default function App() {
                                 <span key={i} style={{ '--burst-angle': `${i * 60}deg`, '--burst-distance': `${22 + i * 4}px` }} />
                             ))}
                         </div>
-                        <div className="text-sm font-bold text-white drop-shadow-md text-center mt-1">+XP</div>
+                        <div className="text-[11px] font-extrabold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-center mt-1 whitespace-nowrap bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                            {burst.type === 'WATER' && '💧 Splash!'}
+                            {burst.type === 'PEST' && '🐛 Shoo!'}
+                            {burst.type === 'FERTILIZE' && '🍂 Nourish!'}
+                            {burst.type === 'PRUNE' && '✂️ Trim!'}
+                            {burst.type === 'SUNLIGHT' && '✨ Warmth!'}
+                            {burst.type === 'STORM' && '⚡ Charge!'}
+                        </div>
                     </div>
                 ))}
 
@@ -792,7 +784,7 @@ export default function App() {
                 </div>
 
                 {/* Bottom panel */}
-                <div className={`w-full flex-shrink-0 backdrop-blur-xl rounded-3xl shadow-2xl p-4 z-20 border ${isDay ? 'bg-white/90 text-gray-800 border-white/50' : 'bg-slate-800/90 text-gray-100 border-slate-700/50'}`}>
+                <div className={`w-full flex-shrink-0 glass-panel p-4 z-20 ${isDay ? 'glass-panel-day' : 'glass-panel-night'}`}>
                     <div className="flex justify-between items-end mb-2">
                         <div>
                             <span className={`text-xs font-bold uppercase tracking-wider ${isDay ? 'text-gray-400' : 'text-gray-500'}`}>{t('status')}</span>

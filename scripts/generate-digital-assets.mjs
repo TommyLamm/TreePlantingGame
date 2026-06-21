@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 
@@ -209,30 +209,40 @@ function drawTreeAsset(skin, stage) {
   ellipse(c, 256, 438, 98 + stage * 11, 15, parseHex('#3e7d46', 120));
   if (stage === 1) {
     ellipse(c, 256, 410, 38, 15, parseHex('#654321', 210));
-    line(c, 256, 410, 256, 340, parseHex('#2f7d32'), 9);
+    line(c, 256, 410, 256, 352, parseHex(bark), 11);
+    line(c, 251, 403, 251, 360, parseHex(barkDark, 150), 3);
+    line(c, 260, 395, 272, 372, parseHex(barkDark, 130), 4);
     ellipse(c, 230, 352, 35, 17, parseHex(leafLight), 220);
     ellipse(c, 286, 344, 40, 18, parseHex(leaf), 220);
     writePng(c, join('trees', `${skin}-stage-${stage}.png`));
     return;
   }
-  const trunkH = 110 + stage * 35;
   const trunkW = 26 + stage * 8;
-  polygon(c, [[256 - trunkW / 2, 430], [250 - trunkW / 4, 430 - trunkH], [262 + trunkW / 4, 430 - trunkH], [256 + trunkW / 2, 430]], parseHex(bark));
-  line(c, 246, 418, 228 - stage * 10, 437, parseHex(barkDark), 9 + stage);
-  line(c, 268, 418, 294 + stage * 10, 438, parseHex(barkDark), 8 + stage);
-  for (let i = 0; i < stage + 3; i++) {
-    const y = 420 - i * (trunkH / (stage + 4));
-    line(c, 252, y, 270, y - 10, parseHex(barkDark, 115), 3);
-  }
   const layers = Math.min(6, stage + 1);
+  const canopyBottom = 332 + stage * 4;
+  const canopyTop = Math.max(118, 238 - stage * 17);
   for (let i = 0; i < layers; i++) {
     const t = i / Math.max(1, layers - 1);
-    const cy = 365 - t * (145 + stage * 23);
-    const rw = 150 + stage * 32 - t * (92 + stage * 10);
-    const rh = 48 + stage * 10 - t * 12;
-    polygon(c, [[256, cy - rh - 34], [256 - rw, cy + rh], [256 + rw, cy + rh]], parseHex(i % 2 ? leaf : leafDark, 235));
-    ellipse(c, 256, cy + rh * 0.55, rw * 0.7, rh * 0.55, parseHex(leafLight, 52));
+    const baseY = canopyBottom - t * (canopyBottom - canopyTop);
+    const rw = 150 + stage * 12 - t * (72 + stage * 6);
+    const layerH = 50 + stage * 6 - t * 16;
+    polygon(c, [[256, baseY - layerH - 34], [256 - rw, baseY], [256 + rw, baseY]], parseHex(i % 2 ? leaf : leafDark, 235));
+    ellipse(c, 256, baseY - layerH * 0.18, rw * 0.66, layerH * 0.34, parseHex(leafLight, 48));
   }
+  const visibleTrunkTop = canopyBottom + 4;
+  const visibleTrunkBottom = 438;
+  const visibleTrunkBottomW = trunkW * 0.82;
+  const visibleTrunkTopW = trunkW * 0.46;
+  polygon(c, [
+    [256 - visibleTrunkBottomW / 2, visibleTrunkBottom],
+    [256 - visibleTrunkTopW / 2, visibleTrunkTop],
+    [256 + visibleTrunkTopW / 2, visibleTrunkTop],
+    [256 + visibleTrunkBottomW / 2, visibleTrunkBottom],
+  ], parseHex(bark, 235));
+  line(c, 249, visibleTrunkBottom - 8, 250, visibleTrunkTop + 14, parseHex(barkDark, 130), Math.max(3, stage));
+  line(c, 264, visibleTrunkBottom - 18, 271, visibleTrunkTop + 28, parseHex('#f2c17a', 70), Math.max(2, stage - 1));
+  line(c, 256 - trunkW * 0.12, visibleTrunkTop + 28, 224 - stage * 3, visibleTrunkTop + 55, parseHex(barkDark, 150), Math.max(4, stage));
+  line(c, 256 + trunkW * 0.12, visibleTrunkTop + 18, 289 + stage * 3, visibleTrunkTop + 48, parseHex(barkDark, 140), Math.max(4, stage - 1));
   if (skin === 'snow') {
     for (let i = 0; i < layers; i++) ellipse(c, 256, 325 - i * 35, 90 - i * 8, 12, parseHex('#ffffff', 130));
   }
@@ -240,6 +250,29 @@ function drawTreeAsset(skin, stage) {
     polygon(c, [[256, 46], [267, 72], [296, 73], [273, 90], [282, 118], [256, 101], [230, 118], [239, 90], [216, 73], [245, 72]], parseHex('#ffd54f', 230));
   }
   writePng(c, join('trees', `${skin}-stage-${stage}.png`));
+}
+
+function preserveOrDrawTreeAsset(skin, stage) {
+  const relPath = join('trees', `${skin}-stage-${stage}.png`);
+  if (!existsSync(join(root, relPath))) {
+    drawTreeAsset(skin, stage);
+    return;
+  }
+  manifest.push({ path: `/assets/${relPath.replaceAll('\\', '/')}`, width: 512, height: 512 });
+}
+
+function preserveOrDrawAsset(relPath, width, height, draw) {
+  if (!existsSync(join(root, relPath))) {
+    draw();
+    return;
+  }
+  manifest.push({ path: `/assets/${relPath.replaceAll('\\', '/')}`, width, height });
+}
+
+function preserveAsset(relPath, width, height) {
+  if (existsSync(join(root, relPath))) {
+    manifest.push({ path: `/assets/${relPath.replaceAll('\\', '/')}`, width, height });
+  }
 }
 
 function drawGroundPatch() {
@@ -391,18 +424,35 @@ function icon(name) {
   writePng(c, join('icons', `${name}.png`));
 }
 
-makeEnvironment('day-forest', false);
-makeEnvironment('night-garden', true);
-for (const skin of Object.keys(palettes)) for (let stage = 1; stage <= 7; stage++) drawTreeAsset(skin, stage);
-drawGroundPatch();
-drawPerson();
-drawHouse();
-for (const name of ['butterfly', 'squirrel', 'bird', 'owl', 'deer', 'phoenix']) drawCompanion(name);
+preserveOrDrawAsset(join('environments', 'day-forest.png'), 1600, 900, () => makeEnvironment('day-forest', false));
+preserveOrDrawAsset(join('environments', 'night-garden.png'), 1600, 900, () => makeEnvironment('night-garden', true));
+for (const skin of Object.keys(palettes)) for (let stage = 1; stage <= 7; stage++) preserveOrDrawTreeAsset(skin, stage);
+preserveOrDrawAsset(join('decor', 'ground-patch.png'), 320, 120, drawGroundPatch);
+preserveOrDrawAsset(join('decor', 'person.png'), 80, 160, drawPerson);
+preserveOrDrawAsset(join('decor', 'house.png'), 160, 140, drawHouse);
+for (const name of ['butterfly', 'squirrel', 'bird', 'owl', 'deer', 'phoenix']) {
+  preserveOrDrawAsset(join('companions', `${name}.png`), 160, 160, () => drawCompanion(name));
+}
 for (const name of [
   'cloud-rain', 'bug', 'sun', 'moon', 'zap', 'shovel', 'droplets', 'sparkles', 'clock',
   'volume-2', 'volume-x', 'leaf', 'user', 'cloud-check', 'cloud-off', 'book-open', 'lock',
   'coins', 'shopping-cart', 'scissors', 'sun-medium', 'cloud-lightning', 'trophy', 'close',
-]) icon(name);
+  'calendar', 'paw', 'recycle', 'gamepad', 'stats', 'gift', 'star', 'robot', 'blossom',
+  'maple-leaf', 'snowflake', 'gold-sparkle', 'sprout', 'mature-tree', 'mountain',
+  'handshake', 'wizard-hat',
+]) {
+  preserveOrDrawAsset(join('icons', `${name}.png`), 96, 96, () => icon(name));
+}
+for (const [name, width, height] of [
+  ['action-active.png', 360, 150],
+  ['action-disabled.png', 360, 150],
+  ['button-primary.png', 360, 150],
+  ['panel-day.png', 640, 360],
+  ['panel-night.png', 640, 360],
+  ['badge-gold.png', 256, 160],
+]) {
+  preserveAsset(join('ui', name), width, height);
+}
 
 writeFileSync(join(root, 'asset-manifest.json'), JSON.stringify(manifest, null, 2));
 console.log(`Generated ${manifest.length} PNG assets in ${root}`);

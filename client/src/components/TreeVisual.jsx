@@ -75,10 +75,17 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
                 isStatic ? 'raster-tree-static' : '',
                 levelUpAnim ? 'raster-level-up' : '',
                 safeLevel === MAX_LEVEL ? 'raster-max-level' : '',
+                eventType ? `raster-event-active-${eventType.toLowerCase()}` : '',
             ].filter(Boolean).join(' ')}
             aria-label={`Tree level ${safeLevel}`}
         >
             <img className="raster-ground-patch" src="/assets/decor/ground-patch.png" alt="" aria-hidden="true" draggable="false" />
+            <div className="tree-ground-shadow" aria-hidden="true" />
+            <div className="tree-ground-halo" aria-hidden="true" />
+            <div className="tree-ground-vegetation" aria-hidden="true" />
+            {levelUpAnim && (
+                <div className="raster-level-up-ring" aria-hidden="true" />
+            )}
 
             {stage >= 3 && !isStatic && (
                 <div className="raster-clouds" aria-hidden="true">

@@ -90,6 +90,7 @@ export const TRANSLATIONS = {
     loading: "Connecting to garden...",
     profileSaved: "Profile Saved!",
     close: "Close",
+    mute: "Mute",
     invalidUsername: "Invalid name. 2-16 chars, letters/numbers/Chinese only.",
     // --- New: Daily Rewards ---
     dailyReward: "Daily Reward",
@@ -112,6 +113,7 @@ export const TRANSLATIONS = {
     minutes: "m",
     // --- New: Weather ---
     weatherSunny: "Sunny",
+    weatherClearNight: "Clear",
     weatherCloudy: "Cloudy",
     weatherRainy: "Rainy",
     weatherStormy: "Stormy",
@@ -330,6 +332,7 @@ export const TRANSLATIONS = {
     loading: "正在连接花园...",
     profileSaved: "资料已保存！",
     close: "关闭",
+    mute: "静音",
     invalidUsername: "名字无效。2-16个字符，仅限字母、数字和中文。",
     // --- New: Daily Rewards ---
     dailyReward: "每日奖励",
@@ -352,6 +355,7 @@ export const TRANSLATIONS = {
     minutes: "分钟",
     // --- New: Weather ---
     weatherSunny: "晴天",
+    weatherClearNight: "晴朗",
     weatherCloudy: "多云",
     weatherRainy: "雨天",
     weatherStormy: "暴风雨",
@@ -570,6 +574,7 @@ export const TRANSLATIONS = {
     loading: "正在連接花園...",
     profileSaved: "資料已儲存！",
     close: "關閉",
+    mute: "靜音",
     invalidUsername: "名字無效。2-16個字元，僅限字母、數字和中文。",
     // --- New: Daily Rewards ---
     dailyReward: "每日獎勵",
@@ -592,6 +597,7 @@ export const TRANSLATIONS = {
     minutes: "分鐘",
     // --- New: Weather ---
     weatherSunny: "晴天",
+    weatherClearNight: "晴朗",
     weatherCloudy: "多雲",
     weatherRainy: "雨天",
     weatherStormy: "暴風雨",

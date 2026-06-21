@@ -40,6 +40,8 @@ export const EnvironmentBackdrop = ({
             <img className="environment-art" src={backgroundAsset} alt={label} />
             <div className="environment-sky-glow" />
             <div className="environment-vignette" />
+            <div className="environment-mist" />
+            <div className="environment-light-beams" />
             {!isDay && <div className="environment-stars" />}
             <div className="environment-birds">
                 <span />

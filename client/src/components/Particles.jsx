@@ -79,19 +79,38 @@ export const Particles = ({ isDay, weather = 'sunny', season = 'spring' }) => {
         const isSnowy = weather === 'snowy' || season === 'winter';
         const isCalmNight = !isDay && !isWet && !isSnowy;
 
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+        const countMult = isMobile ? 0.5 : 1;
+
+        // Tailor seasonal particle characteristics
+        let seasonalCount = 10;
+        let seasonalOptions = { topMin: -25, topMax: -5, durationMin: 10, durationMax: 17, sizeMin: 10, sizeMax: 22, drift: 150, opacityMin: 0.35, opacityMax: 0.72 };
+
+        if (isWet) {
+            seasonalCount = 6;
+            seasonalOptions = { topMin: -25, topMax: -5, durationMin: 10, durationMax: 16, sizeMin: 8, sizeMax: 16, drift: 120, opacityMin: 0.3, opacityMax: 0.6 };
+        } else if (isSnowy) {
+            seasonalCount = 32;
+            seasonalOptions = { topMin: -40, topMax: 80, durationMin: 8, durationMax: 18, sizeMin: 2, sizeMax: 6, drift: 100, opacityMin: 0.5, opacityMax: 0.9 };
+        } else if (season === 'spring') {
+            seasonalCount = 14;
+            seasonalOptions = { topMin: -20, topMax: -5, durationMin: 13, durationMax: 20, sizeMin: 8, sizeMax: 14, drift: 180, opacityMin: 0.4, opacityMax: 0.8 };
+        } else if (season === 'autumn') {
+            seasonalCount = 12;
+            seasonalOptions = { topMin: -20, topMax: -5, durationMin: 11, durationMax: 16, sizeMin: 12, sizeMax: 18, drift: 140, opacityMin: 0.4, opacityMax: 0.85 };
+        } else if (season === 'summer') {
+            // Motes rise from bottom
+            seasonalCount = 16;
+            seasonalOptions = { topMin: 65, topMax: 105, durationMin: 6, durationMax: 12, sizeMin: 3, sizeMax: 6, drift: 40, opacityMin: 0.3, opacityMax: 0.75 };
+        } else if (isDay) {
+            seasonalCount = 12;
+        } else {
+            seasonalCount = 8;
+        }
+
         return {
-            seasonal: makeItems('seasonal', isWet ? 6 : (isSnowy ? 22 : (isDay ? 14 : 8)), rng, {
-                topMin: isSnowy ? -40 : -25,
-                topMax: isSnowy ? 80 : -5,
-                durationMin: isSnowy ? 12 : 10,
-                durationMax: isSnowy ? 24 : 17,
-                sizeMin: isSnowy ? 3 : 10,
-                sizeMax: isSnowy ? 7 : 22,
-                drift: isSnowy ? 90 : 150,
-                opacityMin: isSnowy ? 0.45 : 0.3,
-                opacityMax: isSnowy ? 0.9 : 0.72,
-            }),
-            fireflies: isCalmNight ? makeItems('firefly', 18, rng, {
+            seasonal: makeItems('seasonal', Math.ceil(seasonalCount * countMult), rng, seasonalOptions),
+            fireflies: isCalmNight ? makeItems('firefly', Math.ceil(18 * countMult), rng, {
                 topMin: 12,
                 topMax: 88,
                 durationMin: 7,
@@ -102,17 +121,17 @@ export const Particles = ({ isDay, weather = 'sunny', season = 'spring' }) => {
                 opacityMin: 0.45,
                 opacityMax: 0.95,
             }) : [],
-            rain: isWet ? makeItems('rain', weather === 'stormy' ? 26 : 24, rng, {
+            rain: isWet ? makeItems('rain', Math.ceil((weather === 'stormy' ? 32 : 16) * countMult), rng, {
                 topMin: -30,
                 topMax: 10,
-                durationMin: weather === 'stormy' ? 0.85 : 1.25,
-                durationMax: weather === 'stormy' ? 1.6 : 2.4,
-                sizeMin: weather === 'stormy' ? 22 : 16,
-                sizeMax: weather === 'stormy' ? 36 : 28,
-                drift: weather === 'stormy' ? 80 : 40,
+                durationMin: weather === 'stormy' ? 0.45 : 1.5,
+                durationMax: weather === 'stormy' ? 0.95 : 2.5,
+                sizeMin: weather === 'stormy' ? 24 : 10,
+                sizeMax: weather === 'stormy' ? 44 : 18,
+                drift: weather === 'stormy' ? 160 : 15,
                 delayMax: 3,
-                opacityMin: 0.28,
-                opacityMax: 0.62,
+                opacityMin: weather === 'stormy' ? 0.4 : 0.2,
+                opacityMax: weather === 'stormy' ? 0.75 : 0.55,
             }) : [],
             clouds: ['cloudy', 'rainy', 'stormy', 'snowy'].includes(weather)
                 ? makeItems('cloud', 3, rng, {
@@ -126,7 +145,7 @@ export const Particles = ({ isDay, weather = 'sunny', season = 'spring' }) => {
                     opacityMin: weather === 'stormy' ? 0.22 : 0.16,
                     opacityMax: weather === 'stormy' ? 0.42 : 0.32,
                 }) : [],
-            glints: isDay && weather === 'sunny' ? makeItems('glint', 6, rng, {
+            glints: isDay && weather === 'sunny' ? makeItems('glint', Math.ceil(6 * countMult), rng, {
                 topMin: 5,
                 topMax: 70,
                 durationMin: 5,
@@ -137,7 +156,7 @@ export const Particles = ({ isDay, weather = 'sunny', season = 'spring' }) => {
                 opacityMin: 0.25,
                 opacityMax: 0.65,
             }) : [],
-            butterflies: isDay && season === 'spring' ? makeItems('butterfly', 4, rng, {
+            butterflies: isDay && season === 'spring' ? makeItems('butterfly', Math.ceil(4 * countMult), rng, {
                 topMin: 25,
                 topMax: 65,
                 durationMin: 12,

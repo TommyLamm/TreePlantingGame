@@ -25,11 +25,16 @@ const ICON_ASSETS = {
     CloudLightning: 'cloud-lightning',
     Trophy: 'trophy',
     X: 'close',
+    Calendar: 'calendar',
+    Paw: 'paw',
+    Recycle: 'recycle',
+    Gamepad: 'gamepad',
+    StatsIcon: 'stats',
 };
 
 const makeIcon = (asset, label) => {
     const Icon = ({ size = 24, className = '', alt = '', color, style, ...props }) => {
-        const maskUrl = `url(/assets/icons/${asset}.png)`;
+        const assetUrl = `url(/assets/icons/${asset}.png)`;
         return (
         <span
             className={`asset-icon ${className}`.trim()}
@@ -39,9 +44,7 @@ const makeIcon = (asset, label) => {
             style={{
                 width: size,
                 height: size,
-                backgroundColor: color || 'currentColor',
-                WebkitMaskImage: maskUrl,
-                maskImage: maskUrl,
+                backgroundImage: assetUrl,
                 ...style,
             }}
             {...props}
@@ -76,3 +79,8 @@ export const SunMedium = makeIcon(ICON_ASSETS.SunMedium, 'SunMedium');
 export const CloudLightning = makeIcon(ICON_ASSETS.CloudLightning, 'CloudLightning');
 export const Trophy = makeIcon(ICON_ASSETS.Trophy, 'Trophy');
 export const X = makeIcon(ICON_ASSETS.X, 'X');
+export const Calendar = makeIcon(ICON_ASSETS.Calendar, 'Calendar');
+export const Paw = makeIcon(ICON_ASSETS.Paw, 'Paw');
+export const Recycle = makeIcon(ICON_ASSETS.Recycle, 'Recycle');
+export const Gamepad = makeIcon(ICON_ASSETS.Gamepad, 'Gamepad');
+export const StatsIcon = makeIcon(ICON_ASSETS.StatsIcon, 'StatsIcon');
