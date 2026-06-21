@@ -1,210 +1,163 @@
+const AUDIO_ASSETS = {
+  bgm: '/assets/audio/bgm-garden-loop.wav',
+  click: '/assets/audio/ui-click.wav',
+  water: '/assets/audio/water.wav',
+  fertilize: '/assets/audio/fertilize.wav',
+  pest: '/assets/audio/pest.wav',
+  alert: '/assets/audio/alert.wav',
+  levelUp: '/assets/audio/level-up.wav',
+};
+
+const VOLUMES = {
+  bgm: 0.18,
+  click: 0.38,
+  water: 0.48,
+  fertilize: 0.46,
+  pest: 0.34,
+  alert: 0.42,
+  levelUp: 0.5,
+};
+
 export const audio = {
   ctx: null,
-  bgmNodes: [],
+  buffers: {},
+  loadPromise: null,
+  bgmSource: null,
+  bgmGain: null,
   isMuted: true,
 
   init() {
-    if (!this.ctx) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
+    if (this.ctx) return true;
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return false;
+    this.ctx = new AudioCtor();
+    this.loadAssets();
+    return true;
+  },
+
+  loadAssets() {
+    if (!this.ctx || this.loadPromise) return this.loadPromise;
+
+    this.loadPromise = Promise.all(
+      Object.entries(AUDIO_ASSETS).map(async ([key, url]) => {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Unable to load audio asset: ${url}`);
+        const data = await response.arrayBuffer();
+        this.buffers[key] = await this.ctx.decodeAudioData(data);
+      })
+    ).catch(error => {
+      console.warn('Audio assets failed to load.', error);
+      this.loadPromise = null;
+    });
+
+    return this.loadPromise;
   },
 
   setMuted(mute) {
     this.isMuted = mute;
-    if (this.ctx && this.ctx.state === 'suspended' && !mute) {
-      this.ctx.resume();
-    }
     if (mute) {
       this.stopBgm();
-    } else {
-      this.startBgm();
+      return;
+    }
+
+    this.init();
+    this.resume();
+    this.startBgm();
+  },
+
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
     }
   },
 
   startBgm() {
-    if (this.bgmNodes.length > 0) return;
-    this.init();
+    if (this.isMuted || this.bgmSource) return;
+    if (!this.init()) return;
 
-    const bufferSize = this.ctx.sampleRate * 4;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
+    const bgmBuffer = this.buffers.bgm;
+    if (!bgmBuffer) {
+      this.loadAssets()?.then(() => {
+        if (!this.isMuted) this.startBgm();
+      });
+      return;
     }
 
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
-    noise.loop = true;
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 400;
-    filter.Q.value = 0;
-
+    const source = this.ctx.createBufferSource();
     const gain = this.ctx.createGain();
-    gain.gain.value = 0.15;
-
-    const lfo = this.ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 0.12;
-
-    const lfoGain = this.ctx.createGain();
-    lfoGain.gain.value = 300;
-
-    lfo.connect(lfoGain);
-    lfoGain.connect(filter.frequency);
-    noise.connect(filter);
-    filter.connect(gain);
+    source.buffer = bgmBuffer;
+    source.loop = true;
+    gain.gain.value = VOLUMES.bgm;
+    source.connect(gain);
     gain.connect(this.ctx.destination);
-    noise.start();
-    lfo.start();
+    source.start();
 
-    this.bgmNodes.push({ osc: noise, lfo: lfo, nodes: [filter, gain, lfoGain] });
+    this.bgmSource = source;
+    this.bgmGain = gain;
   },
 
   stopBgm() {
-    this.bgmNodes.forEach(n => {
+    if (this.bgmSource) {
       try {
-        if (n.osc) n.osc.stop();
-        if (n.lfo) n.lfo.stop();
-        if (n.osc) n.osc.disconnect();
-        if (n.lfo) n.lfo.disconnect();
-        if (n.nodes) n.nodes.forEach(node => node.disconnect());
-      } catch (e) {
-        console.error(e);
+        this.bgmSource.stop();
+      } catch (error) {
+        console.warn('BGM stop failed.', error);
       }
-    });
-    this.bgmNodes = [];
+      this.bgmSource.disconnect();
+      this.bgmSource = null;
+    }
+
+    if (this.bgmGain) {
+      this.bgmGain.disconnect();
+      this.bgmGain = null;
+    }
   },
 
-  playTone(freq, type, duration, vol = 0.1) {
+  playAsset(key) {
     if (this.isMuted) return;
-    this.init();
+    if (!this.init()) return;
+    this.resume();
 
-    const osc = this.ctx.createOscillator();
+    const buffer = this.buffers[key];
+    if (!buffer) {
+      this.loadAssets();
+      return;
+    }
+
+    const source = this.ctx.createBufferSource();
     const gain = this.ctx.createGain();
-    osc.frequency.value = freq;
-    osc.type = type;
-    osc.connect(gain);
+    source.buffer = buffer;
+    gain.gain.value = VOLUMES[key] ?? 0.45;
+    source.connect(gain);
     gain.connect(this.ctx.destination);
-    osc.start();
-    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-    osc.stop(this.ctx.currentTime + duration);
+    source.onended = () => {
+      source.disconnect();
+      gain.disconnect();
+    };
+    source.start();
   },
 
   playClick() {
-    this.playTone(600, 'triangle', 0.1, 0.05);
+    this.playAsset('click');
   },
 
   playAlert() {
-    if (this.isMuted) return;
-    this.init();
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.frequency.setValueAtTime(523.25, now);
-    osc.frequency.setValueAtTime(392.00, now + 0.2);
-    gain.gain.setValueAtTime(0.1, now);
-    gain.gain.setTargetAtTime(0, now + 0.5, 0.1);
-    osc.start();
-    osc.stop(now + 1.0);
+    this.playAsset('alert');
   },
 
   playWater() {
-    if (this.isMuted) return;
-    this.init();
-
-    const bufferSize = this.ctx.sampleRate * 1.0;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
-
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 800;
-
-    const gain = this.ctx.createGain();
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.ctx.destination);
-    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.8);
-    filter.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.8);
-    noise.start();
+    this.playAsset('water');
   },
 
   playPest() {
-    if (this.isMuted) return;
-    this.init();
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.value = 150;
-
-    const lfo = this.ctx.createOscillator();
-    lfo.frequency.value = 30;
-    const lfoGain = this.ctx.createGain();
-    lfoGain.gain.value = 50;
-
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
-    lfo.start();
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.4);
+    this.playAsset('pest');
   },
 
   playFertilize() {
-    if (this.isMuted) return;
-    this.init();
-
-    const now = this.ctx.currentTime;
-    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      const start = now + (i * 0.05);
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.05, start + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
-      osc.start(start);
-      osc.stop(start + 0.6);
-    });
+    this.playAsset('fertilize');
   },
 
   playLevelUp() {
-    if (this.isMuted) return;
-    this.init();
-
-    const now = this.ctx.currentTime;
-    [261.63, 329.63, 392.00, 523.25].forEach((freq, i) => {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.value = freq;
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      gain.gain.setValueAtTime(0.05, now + i * 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
-      osc.start(now + i * 0.1);
-      osc.stop(now + 2.0);
-    });
-  }
+    this.playAsset('levelUp');
+  },
 };
