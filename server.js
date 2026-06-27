@@ -3,8 +3,6 @@
 // app.use('/api/', rateLimit({ windowMs: 60000, max: 100 }));
 
 const express = require('express');
-const fs = require('fs');
-const fsPromises = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
 const {
@@ -13,6 +11,7 @@ const {
     PRESTIGE_UPGRADES,
     DAILY_REWARDS,
 } = require('./server/config/gameData');
+const { createUserRepository } = require('./server/data/userRepository');
 
 const app = express();
 const PORT = process.env.PORT || 7777;
@@ -98,71 +97,10 @@ function isValidUsername(name) {
     return typeof name === 'string' && USERNAME_REGEX.test(name);
 }
 
-// --- In-Memory Cache ---
-let dbCache = {};
-let isDirty = false; // Flag to track if cache has been modified
-
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'client/dist')));
-
-// --- Helper: Create default user object ---
-function createDefaultUser(isAdmin = false) {
-    return {
-        xp: 0,
-        level: isAdmin ? 100 : 1,
-        activeEvent: null,
-        isDemoMode: false,
-        lastTick: Date.now(),
-        lastEventTime: Date.now(),
-        coins: isAdmin ? 10000 : 0,
-        inventory: { xpBuff: false, autoWater: false, treeSkin: 'default', unlockedSkins: ['default'] },
-        joinDate: Date.now(),
-        playTime: 0,
-        interactionCount: 0,
-        profile: { avatar: null, birthday: '', signature: '' },
-        achievements: [],
-        // --- New fields ---
-        lastLoginDate: null,
-        loginStreak: 0,
-        maxLoginStreak: 0,
-        dailyRewardClaimed: false,
-        combo: 0,
-        maxCombo: 0,
-        companion: null,
-        unlockedCompanions: [],
-        generation: 0,
-        prestigePoints: 0,
-        prestigeUpgrades: {},
-        totalXpEarned: 0,
-        totalCoinsEarned: 0,
-        totalEventsResolved: 0,
-        lastOfflineXp: 0,
-        lastOfflineCoins: 0,
-        goldenHourUntil: 0,
-        lastShakeTime: 0,
-        lastGiftDate: null,
-        minigameCount: 0,
-        minigameDate: null,
-    };
-}
-
-// --- Helper: Migrate existing user to add missing new fields ---
-function migrateUser(user) {
-    const defaults = createDefaultUser();
-    for (const key of Object.keys(defaults)) {
-        if (user[key] === undefined) {
-            user[key] = defaults[key];
-        }
-    }
-    // Ensure sub-objects exist
-    if (!user.inventory) user.inventory = defaults.inventory;
-    if (!user.profile) user.profile = defaults.profile;
-    if (!user.achievements) user.achievements = [];
-    if (!user.prestigeUpgrades) user.prestigeUpgrades = {};
-    if (!Array.isArray(user.unlockedCompanions)) user.unlockedCompanions = [];
-}
 
 // --- Helper: Get companion bonus multipliers ---
 function getCompanionBonuses(user) {
@@ -202,71 +140,18 @@ function getPrestigeBonuses(user) {
     return bonuses;
 }
 
-// --- Initialization ---
-function initializeDatabase() {
-    console.log("------------------------------------------------");
-    console.log(`[Init] Checking database file...`);
-    try {
-        if (!fs.existsSync(DB_FILE)) {
-            console.log(`[Init] Creating new save.json...`);
-            fs.writeFileSync(DB_FILE, '{}', 'utf8');
-            dbCache = {};
-        } else {
-            console.log(`[Init] Found existing save.json. Loading into memory...`);
-            const data = fs.readFileSync(DB_FILE, 'utf8');
-            dbCache = JSON.parse(data || '{}');
-            console.log(`[Init] Loaded ${Object.keys(dbCache).length} user(s) into memory.`);
-        }
-        fs.accessSync(DB_FILE, fs.constants.R_OK | fs.constants.W_OK);
-        console.log(`[Init] Read/Write permissions confirmed.`);
-    } catch (err) {
-        console.error(`[CRITICAL ERROR] Cannot access save.json:`, err);
-    }
-    console.log("------------------------------------------------");
-}
-
-initializeDatabase();
-
-// --- Migrate all existing users on startup ---
-for (const [name, user] of Object.entries(dbCache)) {
-    migrateUser(user);
-}
-
-// --- Ensure Admin always exists ---
-if (!dbCache['Admin']) {
-    dbCache['Admin'] = createDefaultUser(true);
-    isDirty = true;
-    console.log(`[Init] Admin account created.`);
-} else {
-    // Keep Admin at max level
-    dbCache['Admin'].level = 100;
-    if (!dbCache['Admin'].achievements) dbCache['Admin'].achievements = [];
-    migrateUser(dbCache['Admin']);
-    isDirty = true;
-}
-
-// --- Background Save Task ---
-const SAVE_INTERVAL_MS = 5000; // Save every 5 seconds
-setInterval(async () => {
-    if (isDirty) {
-        try {
-            await fsPromises.writeFile(DB_FILE, JSON.stringify(dbCache, null, 2), 'utf8');
-            isDirty = false;
-        } catch (err) {
-            console.error(`[Background Sync Error] Failed to write save.json:`, err);
-        }
-    }
-}, SAVE_INTERVAL_MS);
+const repository = createUserRepository({ dbFile: DB_FILE });
+repository.initialize();
+repository.startAutoSave();
 
 // --- Graceful Shutdown ---
 async function shutdown(signal) {
     console.log(`\n[Shutdown] Received ${signal}. Saving data to disk...`);
-    if (isDirty) {
-        try {
-            fs.writeFileSync(DB_FILE, JSON.stringify(dbCache, null, 2), 'utf8');
+    repository.stopAutoSave();
+    if (repository.isDirty()) {
+        repository.flushSync();
+        if (!repository.isDirty()) {
             console.log(`[Shutdown] Data saved successfully.`);
-        } catch (err) {
-            console.error(`[Shutdown Error] Failed to save data:`, err);
         }
     } else {
         console.log(`[Shutdown] No pending changes. Data is safe.`);
@@ -324,9 +209,6 @@ function checkDailyLogin(user) {
 function updateUserState(user) {
     const now = Date.now();
     let changed = false;
-
-    // 0. Migrate any missing fields
-    migrateUser(user);
 
     // 1. Check daily login
     checkDailyLogin(user);
@@ -478,7 +360,7 @@ function updateUserState(user) {
     }
 
     if (changed) {
-        isDirty = true;
+        repository.markDirty();
     }
 }
 
@@ -489,7 +371,7 @@ app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
         uptime: process.uptime(),
-        users: Object.keys(dbCache).length
+        users: repository.size()
     });
 });
 
@@ -498,8 +380,8 @@ app.get('/api/db', (req, res) => {
     res.set({ 'Cache-Control': 'no-store', 'Expires': '0' });
     // Only return usernames and count for safety
     const summary = {
-        userCount: Object.keys(dbCache).length,
-        users: Object.keys(dbCache)
+        userCount: repository.size(),
+        users: repository.listNames()
     };
     res.json(summary);
 });
@@ -521,12 +403,7 @@ app.post('/api/heartbeat', (req, res) => {
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username. 2-16 chars, letters/numbers/underscore/Chinese only." });
 
     try {
-        if (!dbCache[username]) {
-            dbCache[username] = createDefaultUser(username === 'Admin');
-            isDirty = true;
-        }
-
-        const user = dbCache[username];
+        const user = repository.ensureUser(username, username === 'Admin');
         updateUserState(user);
 
         // Build response with extra info
@@ -540,7 +417,7 @@ app.post('/api/heartbeat', (req, res) => {
         // --- Clear transient flags ---
         if (user.justLeveledUp) {
             user.justLeveledUp = false;
-            isDirty = true;
+            repository.markDirty();
         }
         if (user.newAchievements) {
             delete user.newAchievements;
@@ -560,17 +437,18 @@ app.post('/api/toggle-warp', (req, res) => {
     const { username } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (dbCache[username]) {
-            updateUserState(dbCache[username]); // Settle pending XP
-            dbCache[username].isDemoMode = !dbCache[username].isDemoMode;
-            isDirty = true;
+        if (repository.hasUser(username)) {
+            const user = repository.getUser(username);
+            updateUserState(user); // Settle pending XP
+            user.isDemoMode = !user.isDemoMode;
+            repository.markDirty();
 
-            const responseUser = { ...dbCache[username], weather: globalWeather.type, season: getSeason() };
-            if (dbCache[username].justLeveledUp) {
-                dbCache[username].justLeveledUp = false;
+            const responseUser = { ...user, weather: globalWeather.type, season: getSeason() };
+            if (user.justLeveledUp) {
+                user.justLeveledUp = false;
             }
-            if (dbCache[username].newAchievements) {
-                delete dbCache[username].newAchievements;
+            if (user.newAchievements) {
+                delete user.newAchievements;
             }
 
             res.json(responseUser);
@@ -587,9 +465,9 @@ app.post('/api/action', (req, res) => {
     const { username, action } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
 
-        const user = dbCache[username];
+        const user = repository.getUser(username);
         updateUserState(user); // Update state first
 
         if (user.activeEvent === action) {
@@ -649,7 +527,7 @@ app.post('/api/action', (req, res) => {
             user.combo = 0;
         }
 
-        isDirty = true;
+        repository.markDirty();
 
         const responseUser = {
             ...user,
@@ -677,8 +555,8 @@ app.post('/api/profile/update', (req, res) => {
     const { username, profile } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         if (profile) {
@@ -693,7 +571,7 @@ app.post('/api/profile/update', (req, res) => {
             if (profile.signature !== undefined) user.profile.signature = profile.signature;
         }
 
-        isDirty = true;
+        repository.markDirty();
         res.json(user);
     } catch (err) {
         console.error(err);
@@ -705,8 +583,8 @@ app.post('/api/store/buy', (req, res) => {
     const { username, itemId, type } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         // Server-side price lookup — ignore client price
@@ -730,7 +608,7 @@ app.post('/api/store/buy', (req, res) => {
             // Re-check achievements after purchase
             checkAchievements(user);
 
-            isDirty = true;
+            repository.markDirty();
             res.json(user);
         } else {
             res.status(400).json({ error: "Not enough coins" });
@@ -745,13 +623,13 @@ app.post('/api/store/equip', (req, res) => {
     const { username, itemId } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         if (user.inventory?.unlockedSkins?.includes(itemId) || itemId === 'default') {
             user.inventory.treeSkin = itemId;
-            isDirty = true;
+            repository.markDirty();
         }
         res.json(user);
     } catch (err) {
@@ -765,8 +643,8 @@ app.post('/api/daily-reward/claim', (req, res) => {
     const { username } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         if (user.dailyRewardClaimed) {
@@ -785,7 +663,7 @@ app.post('/api/daily-reward/claim', (req, res) => {
         user.dailyRewardClaimed = true;
 
         checkAchievements(user);
-        isDirty = true;
+        repository.markDirty();
 
         res.json({ ...user, claimedReward: reward, dayIndex });
     } catch (err) {
@@ -799,8 +677,8 @@ app.post('/api/companion/buy', (req, res) => {
     const { username, companionId } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         const comp = COMPANIONS.find(c => c.id === companionId);
@@ -825,7 +703,7 @@ app.post('/api/companion/buy', (req, res) => {
         user.companion = companionId; // auto-equip
 
         checkAchievements(user);
-        isDirty = true;
+        repository.markDirty();
         res.json(user);
     } catch (err) {
         console.error(err);
@@ -838,13 +716,13 @@ app.post('/api/companion/equip', (req, res) => {
     const { username, companionId } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         if (companionId === null) {
             user.companion = null;
-            isDirty = true;
+            repository.markDirty();
             return res.json(user);
         }
 
@@ -853,7 +731,7 @@ app.post('/api/companion/equip', (req, res) => {
         }
 
         user.companion = companionId;
-        isDirty = true;
+        repository.markDirty();
         res.json(user);
     } catch (err) {
         console.error(err);
@@ -866,8 +744,8 @@ app.post('/api/prestige', (req, res) => {
     const { username } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         if (user.level < 50) {
@@ -890,7 +768,7 @@ app.post('/api/prestige', (req, res) => {
         // Keep: skins, companions, profile, achievements, stats, prestige upgrades
 
         checkAchievements(user);
-        isDirty = true;
+        repository.markDirty();
         res.json({ ...user, pointsEarned });
     } catch (err) {
         console.error(err);
@@ -903,8 +781,8 @@ app.post('/api/prestige/upgrade', (req, res) => {
     const { username, upgradeId } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         const upg = PRESTIGE_UPGRADES.find(u => u.id === upgradeId);
@@ -924,7 +802,7 @@ app.post('/api/prestige/upgrade', (req, res) => {
         if (!user.prestigeUpgrades) user.prestigeUpgrades = {};
         user.prestigeUpgrades[upgradeId] = currentLevel + 1;
 
-        isDirty = true;
+        repository.markDirty();
         res.json(user);
     } catch (err) {
         console.error(err);
@@ -937,8 +815,8 @@ app.post('/api/shake', (req, res) => {
     const { username } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         const now = Date.now();
@@ -955,7 +833,7 @@ app.post('/api/shake', (req, res) => {
             user.totalCoinsEarned = (user.totalCoinsEarned || 0) + droppedCoins;
         }
 
-        isDirty = true;
+        repository.markDirty();
         res.json({ coins: droppedCoins, cooldown: false });
     } catch (err) {
         console.error(err);
@@ -966,8 +844,8 @@ app.post('/api/shake', (req, res) => {
 // --- Garden Visit ---
 app.get('/api/garden/:username', (req, res) => {
     const { username } = req.params;
-    if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-    const user = dbCache[username];
+    if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+    const user = repository.getUser(username);
 
     res.json({
         username,
@@ -990,11 +868,11 @@ app.post('/api/gift', (req, res) => {
         return res.status(400).json({ error: "Cannot gift yourself" });
     }
     try {
-        if (!dbCache[fromUsername]) return res.status(404).json({ error: "Sender not found" });
-        if (!dbCache[toUsername]) return res.status(404).json({ error: "Recipient not found" });
+        if (!repository.hasUser(fromUsername)) return res.status(404).json({ error: "Sender not found" });
+        if (!repository.hasUser(toUsername)) return res.status(404).json({ error: "Recipient not found" });
 
-        const sender = dbCache[fromUsername];
-        const receiver = dbCache[toUsername];
+        const sender = repository.getUser(fromUsername);
+        const receiver = repository.getUser(toUsername);
 
         const today = getTodayStr();
         if (sender.lastGiftDate === today) {
@@ -1011,7 +889,7 @@ app.post('/api/gift', (req, res) => {
         receiver.totalCoinsEarned = (receiver.totalCoinsEarned || 0) + giftAmount;
         sender.lastGiftDate = today;
 
-        isDirty = true;
+        repository.markDirty();
         res.json({ success: true, amount: giftAmount, senderCoins: Math.floor(sender.coins) });
     } catch (err) {
         console.error(err);
@@ -1024,8 +902,8 @@ app.post('/api/minigame/reward', (req, res) => {
     const { username, gameType, score } = req.body;
     if (!isValidUsername(username)) return res.status(400).json({ error: "Invalid username" });
     try {
-        if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-        const user = dbCache[username];
+        if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+        const user = repository.getUser(username);
         updateUserState(user);
 
         const today = getTodayStr();
@@ -1043,7 +921,7 @@ app.post('/api/minigame/reward', (req, res) => {
         user.totalCoinsEarned = (user.totalCoinsEarned || 0) + coinsEarned;
         user.minigameCount++;
 
-        isDirty = true;
+        repository.markDirty();
         res.json({ coinsEarned, gamesRemaining: 3 - user.minigameCount });
     } catch (err) {
         console.error(err);
@@ -1052,12 +930,12 @@ app.post('/api/minigame/reward', (req, res) => {
 });
 
 app.get('/api/users', (req, res) => {
-    res.json(Object.keys(dbCache));
+    res.json(repository.listNames());
 });
 
 // Leaderboard — top 20 users by level desc, then XP desc (excludes Admin)
 app.get('/api/leaderboard', (req, res) => {
-    const entries = Object.entries(dbCache)
+    const entries = repository.entries()
         .filter(([name]) => name !== 'Admin')
         .map(([name, data]) => ({
             username: name,
@@ -1080,8 +958,8 @@ app.get('/api/leaderboard', (req, res) => {
 // Achievements for a specific user
 app.get('/api/achievements/:username', (req, res) => {
     const { username } = req.params;
-    if (!dbCache[username]) return res.status(404).json({ error: "User not found" });
-    res.json({ achievements: dbCache[username].achievements || [] });
+    if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
+    res.json({ achievements: repository.getUser(username).achievements || [] });
 });
 
 const server = app.listen(PORT, () => {
