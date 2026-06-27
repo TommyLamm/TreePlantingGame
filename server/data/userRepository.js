@@ -1,5 +1,7 @@
 const fs = require('node:fs');
 const fsPromises = require('node:fs/promises');
+const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 
 function createDefaultUser(isAdmin = false, now = Date.now()) {
     return {
@@ -55,10 +57,28 @@ function migrateUser(user, now = Date.now()) {
     return user;
 }
 
-function createUserRepository({ dbFile, saveIntervalMs = 5000, logger = console, now = Date.now }) {
-    let cache = {};
-    let dirty = false;
+function createCache(entries = []) {
+    const cache = Object.create(null);
+    for (const [name, user] of entries) {
+        cache[name] = user;
+    }
+    return cache;
+}
+
+function createUserRepository({
+    dbFile,
+    saveIntervalMs = 5000,
+    logger = console,
+    now = Date.now,
+    fsSync = fs,
+    fsAsync = fsPromises,
+}) {
+    let cache = createCache();
+    let mutationGeneration = 0;
+    let persistedGeneration = 0;
+    let inFlightPromise = null;
     let saveTimer = null;
+    let tempFileCounter = 0;
 
     function getUser(username) {
         return cache[username];
@@ -71,7 +91,7 @@ function createUserRepository({ dbFile, saveIntervalMs = 5000, logger = console,
     function ensureUser(username, isAdmin = false) {
         if (!hasUser(username)) {
             cache[username] = createDefaultUser(isAdmin, now());
-            dirty = true;
+            markDirty();
         }
         return cache[username];
     }
@@ -80,22 +100,28 @@ function createUserRepository({ dbFile, saveIntervalMs = 5000, logger = console,
         logger.log('------------------------------------------------');
         logger.log('[Init] Checking database file...');
         try {
-            if (!fs.existsSync(dbFile)) {
+            if (!fsSync.existsSync(dbFile)) {
                 logger.log('[Init] Creating new save.json...');
-                fs.writeFileSync(dbFile, '{}', 'utf8');
-                cache = {};
+                fsSync.writeFileSync(dbFile, '{}', 'utf8');
+                cache = createCache();
             } else {
                 logger.log('[Init] Found existing save.json. Loading into memory...');
-                const data = fs.readFileSync(dbFile, 'utf8');
-                cache = JSON.parse(data || '{}');
+                const data = fsSync.readFileSync(dbFile, 'utf8');
+                const parsed = JSON.parse(data || '{}');
+                if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
+                    throw new TypeError('Database root must be a non-null, non-array object');
+                }
+                cache = createCache(Object.entries(parsed));
                 logger.log(`[Init] Loaded ${Object.keys(cache).length} user(s) into memory.`);
             }
-            fs.accessSync(dbFile, fs.constants.R_OK | fs.constants.W_OK);
+            fsSync.accessSync(dbFile, fsSync.constants.R_OK | fsSync.constants.W_OK);
             logger.log('[Init] Read/Write permissions confirmed.');
         } catch (err) {
             logger.error('[CRITICAL ERROR] Cannot access save.json:', err);
+            throw err;
+        } finally {
+            logger.log('------------------------------------------------');
         }
-        logger.log('------------------------------------------------');
 
         for (const user of Object.values(cache)) {
             migrateUser(user, now());
@@ -108,29 +134,109 @@ function createUserRepository({ dbFile, saveIntervalMs = 5000, logger = console,
             cache.Admin.level = 100;
             if (!cache.Admin.achievements) cache.Admin.achievements = [];
             migrateUser(cache.Admin, now());
-            dirty = true;
+            markDirty();
         }
     }
 
     function markDirty() {
-        dirty = true;
+        mutationGeneration += 1;
     }
 
-    async function flush() {
-        if (!dirty) return;
+    function isDirty() {
+        return persistedGeneration < mutationGeneration;
+    }
+
+    function createTempFilePath() {
+        tempFileCounter += 1;
+        return path.join(
+            path.dirname(dbFile),
+            `.${path.basename(dbFile)}.${process.pid}.${tempFileCounter}.${randomUUID()}.tmp`,
+        );
+    }
+
+    async function writeAtomically(contents) {
+        const tempFile = createTempFilePath();
+        let handle;
         try {
-            await fsPromises.writeFile(dbFile, JSON.stringify(cache, null, 2), 'utf8');
-            dirty = false;
-        } catch (err) {
-            logger.error('[Background Sync Error] Failed to write save.json:', err);
+            handle = await fsAsync.open(tempFile, 'wx', 0o600);
+            await handle.writeFile(contents, 'utf8');
+            await handle.sync();
+            await handle.close();
+            handle = undefined;
+            await fsAsync.rename(tempFile, dbFile);
+        } catch (error) {
+            if (handle) {
+                try {
+                    await handle.close();
+                } catch {}
+            }
+            try {
+                await fsAsync.unlink(tempFile);
+            } catch (cleanupError) {
+                if (cleanupError.code !== 'ENOENT') {
+                    logger.error('[Background Sync Error] Failed to clean temporary save file:', cleanupError);
+                }
+            }
+            throw error;
         }
     }
 
-    function flushSync() {
-        if (!dirty) return;
+    function writeAtomicallySync(contents) {
+        const tempFile = createTempFilePath();
+        let descriptor;
         try {
-            fs.writeFileSync(dbFile, JSON.stringify(cache, null, 2), 'utf8');
-            dirty = false;
+            descriptor = fsSync.openSync(tempFile, 'wx', 0o600);
+            fsSync.writeFileSync(descriptor, contents, 'utf8');
+            fsSync.fsyncSync(descriptor);
+            fsSync.closeSync(descriptor);
+            descriptor = undefined;
+            fsSync.renameSync(tempFile, dbFile);
+        } catch (error) {
+            if (descriptor !== undefined) {
+                try {
+                    fsSync.closeSync(descriptor);
+                } catch {}
+            }
+            try {
+                fsSync.unlinkSync(tempFile);
+            } catch (cleanupError) {
+                if (cleanupError.code !== 'ENOENT') {
+                    logger.error('[Shutdown Error] Failed to clean temporary save file:', cleanupError);
+                }
+            }
+            throw error;
+        }
+    }
+
+    function flush() {
+        if (inFlightPromise) return inFlightPromise;
+        if (!isDirty()) return Promise.resolve();
+
+        inFlightPromise = (async () => {
+            while (isDirty()) {
+                const snapshotGeneration = mutationGeneration;
+                const snapshot = JSON.stringify(cache, null, 2);
+                try {
+                    await writeAtomically(snapshot);
+                    persistedGeneration = Math.max(persistedGeneration, snapshotGeneration);
+                } catch (err) {
+                    logger.error('[Background Sync Error] Failed to write save.json:', err);
+                    return;
+                }
+            }
+        })().finally(() => {
+            inFlightPromise = null;
+        });
+
+        return inFlightPromise;
+    }
+
+    function flushSync() {
+        if (!isDirty()) return;
+        const snapshotGeneration = mutationGeneration;
+        try {
+            writeAtomicallySync(JSON.stringify(cache, null, 2));
+            persistedGeneration = Math.max(persistedGeneration, snapshotGeneration);
         } catch (err) {
             logger.error('[Shutdown Error] Failed to save data:', err);
         }
@@ -158,7 +264,7 @@ function createUserRepository({ dbFile, saveIntervalMs = 5000, logger = console,
         entries: () => Object.entries(cache),
         size: () => Object.keys(cache).length,
         markDirty,
-        isDirty: () => dirty,
+        isDirty,
         startAutoSave,
         stopAutoSave,
         flush,

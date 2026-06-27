@@ -149,9 +149,11 @@ async function shutdown(signal) {
     console.log(`\n[Shutdown] Received ${signal}. Saving data to disk...`);
     repository.stopAutoSave();
     if (repository.isDirty()) {
-        repository.flushSync();
+        await repository.flush();
         if (!repository.isDirty()) {
             console.log(`[Shutdown] Data saved successfully.`);
+        } else {
+            console.error(`[Shutdown Error] Failed to save data.`);
         }
     } else {
         console.log(`[Shutdown] No pending changes. Data is safe.`);
