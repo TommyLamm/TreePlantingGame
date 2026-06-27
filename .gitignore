@@ -22,6 +22,7 @@ client/dist/
 save.json
 
 # Editor / IDE directories and files
+.worktrees/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
