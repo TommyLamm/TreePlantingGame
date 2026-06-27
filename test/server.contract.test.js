@@ -124,6 +124,18 @@ test('public user collection endpoints expose arrays', async () => {
   );
 });
 
+test('daily reward claims preserve the established rule-only reward shape', async () => {
+  const username = 'DailyRewardUser';
+  assert.equal((await post('/api/heartbeat', { username })).status, 200);
+
+  const claimed = await post('/api/daily-reward/claim', { username });
+  assert.equal(claimed.status, 200);
+  assert.deepEqual(
+    Object.keys(claimed.body.claimedReward).sort(),
+    ['coins', 'day', 'xp'],
+  );
+});
+
 test('missing garden and achievement users return the established errors', async () => {
   const garden = await server.request('/api/garden/missing');
   assert.deepEqual(
