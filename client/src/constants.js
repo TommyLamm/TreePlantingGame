@@ -1,13 +1,8 @@
+import gameData from '../../shared/game-data.json';
+
 export const MAX_LEVEL = 100;
 
-export const STORE_ITEMS = [
-    { id: 'xpBuff', type: 'buff', price: 500, icon: '🌟', nameKey: 'itemXpBuff', descKey: 'descXpBuff' },
-    { id: 'autoWater', type: 'auto', price: 1000, icon: '🤖', nameKey: 'itemAutoWater', descKey: 'descAutoWater' },
-    { id: 'cherry', type: 'skin', price: 2000, icon: '🌸', nameKey: 'itemCherrySkin', descKey: 'descCherrySkin' },
-    { id: 'autumn', type: 'skin', price: 2500, icon: '🍂', nameKey: 'itemAutumnSkin', descKey: 'descAutumnSkin' },
-    { id: 'snow', type: 'skin', price: 3000, icon: '❄️', nameKey: 'itemSnowSkin', descKey: 'descSnowSkin' },
-    { id: 'golden', type: 'skin', price: 5000, icon: '✨', nameKey: 'itemGoldenSkin', descKey: 'descGoldenSkin' },
-];
+export const STORE_ITEMS = gameData.storeItems;
 
 export const MILESTONES = [
     { level: 1, stage: 1, nameKey: 'stageSeed' },
@@ -41,34 +36,13 @@ export const ACHIEVEMENT_DEFS = [
 ];
 
 // --- Daily Rewards ---
-export const DAILY_REWARDS = [
-    { day: 1, coins: 100, xp: 0, special: null, icon: '🪙' },
-    { day: 2, coins: 150, xp: 5, special: null, icon: '🪙' },
-    { day: 3, coins: 200, xp: 10, special: null, icon: '💫' },
-    { day: 4, coins: 250, xp: 0, special: null, icon: '🪙' },
-    { day: 5, coins: 300, xp: 15, special: 'luckyBuff', icon: '🍀' },
-    { day: 6, coins: 400, xp: 0, special: null, icon: '🪙' },
-    { day: 7, coins: 500, xp: 25, special: 'rareItem', icon: '🎁' },
-];
+export const DAILY_REWARDS = gameData.dailyRewards;
 
 // --- Companion Definitions ---
-export const COMPANIONS = [
-    { id: 'butterfly', price: 0, unlockLevel: 1, bonus: { type: 'xp', value: 0.05 }, icon: '🦋', nameKey: 'companionButterfly', descKey: 'companionButterflyDesc' },
-    { id: 'squirrel', price: 1500, unlockLevel: 10, bonus: { type: 'coins', value: 0.1 }, icon: '🐿️', nameKey: 'companionSquirrel', descKey: 'companionSquirrelDesc' },
-    { id: 'bird', price: 3000, unlockLevel: 25, bonus: { type: 'eventXp', value: 0.15 }, icon: '🐦', nameKey: 'companionBird', descKey: 'companionBirdDesc' },
-    { id: 'owl', price: 5000, unlockLevel: 50, bonus: { type: 'coins', value: 0.2 }, icon: '🦉', nameKey: 'companionOwl', descKey: 'companionOwlDesc' },
-    { id: 'deer', price: 8000, unlockLevel: 75, bonus: { type: 'allBonus', value: 0.1 }, icon: '🦌', nameKey: 'companionDeer', descKey: 'companionDeerDesc' },
-    { id: 'phoenix', price: 15000, unlockLevel: 0, bonus: { type: 'allBonus', value: 0.2 }, icon: '🔥', nameKey: 'companionPhoenix', descKey: 'companionPhoenixDesc', prestigeOnly: true },
-];
+export const COMPANIONS = gameData.companions;
 
 // --- Prestige Upgrades ---
-export const PRESTIGE_UPGRADES = [
-    { id: 'xpBoost', maxLevel: 5, costPerLevel: 1, icon: '⚡', nameKey: 'prestigeXpBoost', descKey: 'prestigeXpBoostDesc' },
-    { id: 'coinBoost', maxLevel: 5, costPerLevel: 1, icon: '💰', nameKey: 'prestigeCoinBoost', descKey: 'prestigeCoinBoostDesc' },
-    { id: 'eventFreq', maxLevel: 3, costPerLevel: 2, icon: '⏰', nameKey: 'prestigeEventFreq', descKey: 'prestigeEventFreqDesc' },
-    { id: 'startLevel', maxLevel: 5, costPerLevel: 3, icon: '🚀', nameKey: 'prestigeStartLevel', descKey: 'prestigeStartLevelDesc' },
-    { id: 'comboBonus', maxLevel: 3, costPerLevel: 2, icon: '🔥', nameKey: 'prestigeComboBonus', descKey: 'prestigeComboBonusDesc' },
-];
+export const PRESTIGE_UPGRADES = gameData.prestigeUpgrades;
 
 // --- Weather Types ---
 export const WEATHER_TYPES = {

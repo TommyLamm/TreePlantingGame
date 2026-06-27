@@ -7,50 +7,16 @@ const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
+const {
+    STORE_ITEMS,
+    COMPANIONS,
+    PRESTIGE_UPGRADES,
+    DAILY_REWARDS,
+} = require('./server/config/gameData');
 
 const app = express();
 const PORT = process.env.PORT || 7777;
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'save.json');
-
-// --- Server-side Store Items (source of truth for prices) ---
-const STORE_ITEMS = [
-    { id: 'xpBuff', type: 'buff', price: 500 },
-    { id: 'autoWater', type: 'auto', price: 1000 },
-    { id: 'cherry', type: 'skin', price: 2000 },
-    { id: 'autumn', type: 'skin', price: 2500 },
-    { id: 'snow', type: 'skin', price: 3000 },
-    { id: 'golden', type: 'skin', price: 5000 },
-];
-
-// --- Companion Definitions ---
-const COMPANIONS = [
-    { id: 'butterfly', price: 0, unlockLevel: 1, bonus: { type: 'xp', value: 0.05 } },
-    { id: 'squirrel', price: 1500, unlockLevel: 10, bonus: { type: 'coins', value: 0.1 } },
-    { id: 'bird', price: 3000, unlockLevel: 25, bonus: { type: 'eventXp', value: 0.15 } },
-    { id: 'owl', price: 5000, unlockLevel: 50, bonus: { type: 'coins', value: 0.2 } },
-    { id: 'deer', price: 8000, unlockLevel: 75, bonus: { type: 'allBonus', value: 0.1 } },
-    { id: 'phoenix', price: 15000, unlockLevel: 0, bonus: { type: 'allBonus', value: 0.2 }, prestigeOnly: true },
-];
-
-// --- Prestige Upgrade Definitions ---
-const PRESTIGE_UPGRADES = [
-    { id: 'xpBoost', maxLevel: 5, costPerLevel: 1, effectPerLevel: 0.1 },
-    { id: 'coinBoost', maxLevel: 5, costPerLevel: 1, effectPerLevel: 0.15 },
-    { id: 'eventFreq', maxLevel: 3, costPerLevel: 2, effectPerLevel: 60000 },
-    { id: 'startLevel', maxLevel: 5, costPerLevel: 3, effectPerLevel: 2 },
-    { id: 'comboBonus', maxLevel: 3, costPerLevel: 2, effectPerLevel: 0.5 },
-];
-
-// --- Daily Reward Table ---
-const DAILY_REWARDS = [
-    { day: 1, coins: 100, xp: 0 },
-    { day: 2, coins: 150, xp: 5 },
-    { day: 3, coins: 200, xp: 10 },
-    { day: 4, coins: 250, xp: 0 },
-    { day: 5, coins: 300, xp: 15 },
-    { day: 6, coins: 400, xp: 0 },
-    { day: 7, coins: 500, xp: 25 },
-];
 
 // --- Differentiated Event Rewards ---
 const EVENT_REWARDS = {
