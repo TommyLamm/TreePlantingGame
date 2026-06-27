@@ -232,6 +232,9 @@ function createUserRepository({
     }
 
     function flushSync() {
+        if (inFlightPromise) {
+            throw new Error('Cannot flush synchronously while an asynchronous flush is in progress');
+        }
         if (!isDirty()) return;
         const snapshotGeneration = mutationGeneration;
         try {

@@ -383,6 +383,66 @@ test('overlapping flush calls share one serialized write for the same generation
   assert.equal(repository.isDirty(), false);
 });
 
+test('flushSync refuses to race an async flush and the async coordinator persists newer data', async (t) => {
+  const directory = await createTempDirectory(t);
+  const dbFile = path.join(directory, 'save.json');
+  const firstRenameStarted = deferred();
+  const releaseFirstRename = deferred();
+  let renameCalls = 0;
+  const fsAsync = {
+    ...fsPromises,
+    async rename(source, destination) {
+      renameCalls += 1;
+      if (renameCalls === 1) {
+        firstRenameStarted.resolve();
+        await releaseFirstRename.promise;
+      }
+      return fsPromises.rename(source, destination);
+    },
+  };
+  const repository = createUserRepository({
+    dbFile,
+    fsAsync,
+    logger: silentLogger,
+    now: () => 1000,
+  });
+  repository.initialize();
+  repository.flushSync();
+  assert.equal(repository.isDirty(), false);
+
+  const alice = repository.ensureUser('Alice');
+  alice.coins = 10;
+  repository.markDirty();
+  const asyncFlush = repository.flush();
+  await waitFor(() => renameCalls === 1, 'first async rename did not start');
+  alice.coins = 20;
+  repository.markDirty();
+
+  try {
+    assert.throws(
+      () => repository.flushSync(),
+      {
+        name: 'Error',
+        message: 'Cannot flush synchronously while an asynchronous flush is in progress',
+      },
+    );
+    assert.equal(repository.isDirty(), true);
+  } finally {
+    releaseFirstRename.resolve();
+    await asyncFlush;
+  }
+
+  assert.equal(renameCalls, 2);
+  assert.equal(JSON.parse(await readFile(dbFile, 'utf8')).Alice.coins, 20);
+  assert.equal(repository.isDirty(), false);
+
+  alice.coins = 30;
+  repository.markDirty();
+  repository.flushSync();
+  assert.equal(JSON.parse(await readFile(dbFile, 'utf8')).Alice.coins, 30);
+  assert.equal(repository.isDirty(), false);
+});
+
 test('flush writes two-space JSON and clears dirty only after successful writes', async (t) => {
   const directory = await createTempDirectory(t);
   const dbFile = path.join(directory, 'save.json');
