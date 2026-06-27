@@ -37,6 +37,7 @@ after(async () => {
 test('public metadata endpoints expose their established contracts', async () => {
   const health = await server.request('/api/health');
   assert.equal(health.status, 200);
+  assert.deepEqual(Object.keys(health.body).sort(), ['status', 'uptime', 'users']);
   assert.equal(health.body.status, 'ok');
   assert.equal(typeof health.body.uptime, 'number');
   assert.equal(typeof health.body.users, 'number');
