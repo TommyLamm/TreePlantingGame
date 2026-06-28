@@ -10,86 +10,16 @@ const {
     COMPANIONS,
     PRESTIGE_UPGRADES,
     DAILY_REWARDS,
+    EVENT_REWARDS,
+    ACHIEVEMENTS,
 } = require('./server/config/gameData');
 const { createUserRepository } = require('./server/data/userRepository');
+const { createAchievementService } = require('./server/services/achievementService');
+const { createGameStateService } = require('./server/services/gameStateService');
 
 const app = express();
 const PORT = process.env.PORT || 7777;
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'save.json');
-
-// --- Differentiated Event Rewards ---
-const EVENT_REWARDS = {
-    WATER:     { xpMin: 3,  xpMax: 10, coinMin: 10, coinMax: 20 },
-    PEST:      { xpMin: 8,  xpMax: 20, coinMin: 15, coinMax: 25 },
-    FERTILIZE: { xpMin: 5,  xpMax: 15, coinMin: 20, coinMax: 40 },
-    PRUNE:     { xpMin: 3,  xpMax: 8,  coinMin: 30, coinMax: 50 },
-    SUNLIGHT:  { xpMin: 5,  xpMax: 12, coinMin: 10, coinMax: 20 },
-    STORM:     { xpMin: 15, xpMax: 30, coinMin: 25, coinMax: 50 },
-};
-
-// --- Weather System ---
-const WEATHER_TYPES = ['sunny', 'cloudy', 'rainy', 'stormy', 'snowy'];
-const WEATHER_MODIFIERS = {
-    sunny:  { xpMult: 1.2, coinMult: 1.0 },
-    cloudy: { xpMult: 1.0, coinMult: 1.0 },
-    rainy:  { xpMult: 1.3, coinMult: 0.9 },
-    stormy: { xpMult: 0.8, coinMult: 1.3 },
-    snowy:  { xpMult: 1.0, coinMult: 1.2 },
-};
-
-let globalWeather = {
-    type: 'sunny',
-    changedAt: Date.now(),
-    nextChangeAt: Date.now() + (2 + Math.random() * 2) * 3600000,
-};
-
-function updateWeather() {
-    const now = Date.now();
-    if (now >= globalWeather.nextChangeAt) {
-        const newType = WEATHER_TYPES[Math.floor(Math.random() * WEATHER_TYPES.length)];
-        globalWeather = {
-            type: newType,
-            changedAt: now,
-            nextChangeAt: now + (2 + Math.random() * 2) * 3600000,
-        };
-        console.log(`[Weather] Changed to ${newType}`);
-    }
-}
-
-function getSeason() {
-    const month = new Date().getMonth();
-    if (month >= 2 && month <= 4) return 'spring';
-    if (month >= 5 && month <= 7) return 'summer';
-    if (month >= 8 && month <= 10) return 'autumn';
-    return 'winter';
-}
-
-function getTodayStr() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// --- Achievement Definitions ---
-const ACHIEVEMENTS = [
-    { id: 'first_event', condition: (u) => u.interactionCount >= 1 },
-    { id: 'lvl10', condition: (u) => u.level >= 10 },
-    { id: 'lvl25', condition: (u) => u.level >= 25 },
-    { id: 'lvl50', condition: (u) => u.level >= 50 },
-    { id: 'lvl100', condition: (u) => u.level >= 100 },
-    { id: 'rich', condition: (u) => u.coins >= 5000 },
-    { id: 'interact50', condition: (u) => u.interactionCount >= 50 },
-    { id: 'interact100', condition: (u) => u.interactionCount >= 100 },
-    // New achievements
-    { id: 'streak7', condition: (u) => (u.maxLoginStreak || 0) >= 7 },
-    { id: 'streak30', condition: (u) => (u.maxLoginStreak || 0) >= 30 },
-    { id: 'combo5', condition: (u) => (u.maxCombo || 0) >= 5 },
-    { id: 'combo10', condition: (u) => (u.maxCombo || 0) >= 10 },
-    { id: 'prestige1', condition: (u) => (u.generation || 0) >= 1 },
-    { id: 'prestige5', condition: (u) => (u.generation || 0) >= 5 },
-    { id: 'companion3', condition: (u) => (u.unlockedCompanions || []).length >= 3 },
-    { id: 'totalXp1000', condition: (u) => (u.totalXpEarned || 0) >= 1000 },
-    { id: 'totalEvents200', condition: (u) => (u.totalEventsResolved || 0) >= 200 },
-];
 
 // --- Username Validation ---
 const USERNAME_REGEX = /^[a-zA-Z0-9_\u4e00-\u9fff]{2,16}$/;
@@ -102,46 +32,10 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'client/dist')));
 
-// --- Helper: Get companion bonus multipliers ---
-function getCompanionBonuses(user) {
-    const bonuses = { xpMult: 1, coinMult: 1, eventXpMult: 1 };
-    if (!user.companion) return bonuses;
-    const comp = COMPANIONS.find(c => c.id === user.companion);
-    if (!comp) return bonuses;
-
-    switch (comp.bonus.type) {
-        case 'xp': bonuses.xpMult += comp.bonus.value; break;
-        case 'coins': bonuses.coinMult += comp.bonus.value; break;
-        case 'eventXp': bonuses.eventXpMult += comp.bonus.value; break;
-        case 'allBonus':
-            bonuses.xpMult += comp.bonus.value;
-            bonuses.coinMult += comp.bonus.value;
-            bonuses.eventXpMult += comp.bonus.value;
-            break;
-    }
-    return bonuses;
-}
-
-// --- Helper: Get prestige bonus multipliers ---
-function getPrestigeBonuses(user) {
-    const bonuses = { xpMult: 1, coinMult: 1, eventFreqReduction: 0, startLevel: 1, comboCapBonus: 0 };
-    const upgrades = user.prestigeUpgrades || {};
-    for (const upg of PRESTIGE_UPGRADES) {
-        const lvl = upgrades[upg.id] || 0;
-        if (lvl <= 0) continue;
-        switch (upg.id) {
-            case 'xpBoost': bonuses.xpMult += lvl * upg.effectPerLevel; break;
-            case 'coinBoost': bonuses.coinMult += lvl * upg.effectPerLevel; break;
-            case 'eventFreq': bonuses.eventFreqReduction += lvl * upg.effectPerLevel; break;
-            case 'startLevel': bonuses.startLevel = 1 + lvl * upg.effectPerLevel; break;
-            case 'comboBonus': bonuses.comboCapBonus += lvl * upg.effectPerLevel; break;
-        }
-    }
-    return bonuses;
-}
-
 const repository = createUserRepository({ dbFile: DB_FILE });
 repository.initialize();
+const achievementService = createAchievementService({ achievements: ACHIEVEMENTS });
+const gameStateService = createGameStateService({ repository, achievementService });
 repository.startAutoSave();
 
 // --- Graceful Shutdown ---
@@ -163,208 +57,6 @@ async function shutdown(signal) {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-// --- Helper: Check and unlock achievements ---
-function checkAchievements(user) {
-    if (!user.achievements) user.achievements = [];
-    const newlyUnlocked = [];
-
-    for (const ach of ACHIEVEMENTS) {
-        if (!user.achievements.includes(ach.id) && ach.condition(user)) {
-            user.achievements.push(ach.id);
-            newlyUnlocked.push(ach.id);
-        }
-    }
-
-    if (newlyUnlocked.length > 0) {
-        user.newAchievements = newlyUnlocked;
-        return true; // data changed
-    }
-    return false;
-}
-
-// --- Helper: Check daily login streak ---
-function checkDailyLogin(user) {
-    const today = getTodayStr();
-    if (user.lastLoginDate === today) return; // already checked today
-
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-
-    if (user.lastLoginDate === yesterdayStr) {
-        // Consecutive day
-        user.loginStreak += 1;
-    } else {
-        // Streak broken or first login
-        user.loginStreak = 1;
-    }
-
-    user.lastLoginDate = today;
-    user.dailyRewardClaimed = false;
-    if (user.loginStreak > (user.maxLoginStreak || 0)) {
-        user.maxLoginStreak = user.loginStreak;
-    }
-}
-
-// --- Helper: Game Logic Engine ---
-function updateUserState(user) {
-    const now = Date.now();
-    let changed = false;
-
-    // 1. Check daily login
-    checkDailyLogin(user);
-
-    // 2. Calculate Time Delta
-    const dt = now - user.lastTick;
-    const speedMultiplier = user.isDemoMode ? 600 : 1;
-
-    // Accumulate actual play time (if tick is within 15 seconds, assume active session)
-    if (dt > 0 && dt <= 15000) {
-        user.playTime += dt;
-        changed = true;
-    }
-
-    // --- Offline earnings tracking ---
-    if (dt > 15000) {
-        // User was away — calculate offline earnings
-        const offlineDt = dt;
-        const weatherMod = WEATHER_MODIFIERS[globalWeather.type] || { xpMult: 1, coinMult: 1 };
-        const companionBonus = getCompanionBonuses(user);
-        const prestigeBonus = getPrestigeBonuses(user);
-        const xpBuffMult = user.inventory.xpBuff ? 1.5 : 1;
-
-        const totalXpMult = xpBuffMult * weatherMod.xpMult * companionBonus.xpMult * prestigeBonus.xpMult;
-        const totalCoinMult = weatherMod.coinMult * companionBonus.coinMult * prestigeBonus.coinMult;
-
-        const offlineXp = (offlineDt / 3600000) * speedMultiplier * 1 * totalXpMult;
-        const offlineCoins = (offlineDt / 3600000) * speedMultiplier * 50 * totalCoinMult;
-
-        user.lastOfflineXp = Math.floor(offlineXp * 10) / 10;
-        user.lastOfflineCoins = Math.floor(offlineCoins);
-        changed = true;
-    } else {
-        user.lastOfflineXp = 0;
-        user.lastOfflineCoins = 0;
-    }
-
-    // 3. XP & Coin Calculation with all multipliers
-    const prevXp = user.xp;
-    const prevLevel = user.level;
-    const prevCoins = user.coins;
-
-    // Update weather
-    updateWeather();
-
-    const weatherMod = WEATHER_MODIFIERS[globalWeather.type] || { xpMult: 1, coinMult: 1 };
-    const companionBonus = getCompanionBonuses(user);
-    const prestigeBonus = getPrestigeBonuses(user);
-    const goldenHourActive = now < (user.goldenHourUntil || 0);
-    const goldenHourMult = goldenHourActive ? 2 : 1;
-
-    const xpBuffMult = user.inventory.xpBuff ? 1.5 : 1;
-    const totalXpMult = xpBuffMult * weatherMod.xpMult * companionBonus.xpMult * prestigeBonus.xpMult * goldenHourMult;
-    const totalCoinMult = weatherMod.coinMult * companionBonus.coinMult * prestigeBonus.coinMult;
-
-    const xpGained = (dt / 3600000) * speedMultiplier * 1 * totalXpMult;
-    const coinsGained = (dt / 3600000) * speedMultiplier * 50 * totalCoinMult;
-
-    if (user.level < 100) {
-        user.xp += xpGained;
-        user.coins += coinsGained;
-        user.totalXpEarned = (user.totalXpEarned || 0) + xpGained;
-        user.totalCoinsEarned = (user.totalCoinsEarned || 0) + coinsGained;
-
-        const req = Math.floor(10 + Math.pow(user.level, 1.6));
-        if (user.xp >= req) {
-            user.xp -= req;
-            user.level++;
-            user.justLeveledUp = true;
-        }
-    }
-
-    user.lastTick = now;
-
-    // Check if XP/level/coins actually changed
-    if (user.xp !== prevXp || user.level !== prevLevel || user.coins !== prevCoins) {
-        changed = true;
-    }
-
-    // 4. Random Event Generation with prestige frequency bonus
-    const prestigeEventReduction = prestigeBonus.eventFreqReduction || 0;
-    const baseEventInterval = 10 * 60000; // 10 minutes
-    const eventIntervalMs = Math.max(60000, baseEventInterval - prestigeEventReduction) / speedMultiplier;
-
-    if (!user.activeEvent && user.level < 100) {
-        const timeSinceEvent = now - user.lastEventTime;
-
-        if (timeSinceEvent >= eventIntervalMs) {
-            const events = ['WATER', 'PEST', 'FERTILIZE', 'PRUNE', 'SUNLIGHT', 'STORM'];
-            user.activeEvent = events[Math.floor(Math.random() * events.length)];
-            user.eventSpawnedAt = now;
-            changed = true;
-            console.log(`[Game Logic] Spawned ${user.activeEvent}`);
-        }
-    } else if (user.activeEvent === 'WATER' && user.inventory?.autoWater) {
-        const timeSinceEventSpawn = now - (user.eventSpawnedAt || user.lastEventTime);
-        const resolveTimeMs = 5000 / speedMultiplier;
-        if (timeSinceEventSpawn >= resolveTimeMs) {
-            const rewards = EVENT_REWARDS['WATER'];
-            const comboMult = 1 + Math.min(user.combo || 0, 10) * 0.1;
-            const xpMult = totalXpMult * companionBonus.eventXpMult * comboMult;
-            const reward = (Math.floor(Math.random() * (rewards.xpMax - rewards.xpMin + 1)) + rewards.xpMin) * xpMult;
-            const coinReward = Math.floor(Math.random() * (rewards.coinMax - rewards.coinMin + 1)) + rewards.coinMin;
-
-            user.activeEvent = null;
-            user.eventSpawnedAt = null;
-            user.lastEventResolved = true;
-            user.xp += reward;
-            user.coins += coinReward;
-            user.totalXpEarned = (user.totalXpEarned || 0) + reward;
-            user.totalCoinsEarned = (user.totalCoinsEarned || 0) + coinReward;
-            user.interactionCount++;
-            user.totalEventsResolved = (user.totalEventsResolved || 0) + 1;
-            user.combo = (user.combo || 0) + 1;
-            if (user.combo > (user.maxCombo || 0)) user.maxCombo = user.combo;
-
-            const reqXp = Math.floor(10 + Math.pow(user.level, 1.6));
-            if (user.xp >= reqXp && user.level < 100) {
-                user.xp -= reqXp;
-                user.level++;
-                user.justLeveledUp = true;
-            }
-
-            user.lastReward = Math.floor(reward * 10) / 10;
-            user.lastEventTime = now;
-            changed = true;
-            console.log(`[Game Logic] Auto-resolved WATER (combo: ${user.combo})`);
-        }
-    }
-
-    // 4b. STORM penalty — if STORM not resolved within 2 minutes, deduct XP
-    if (user.activeEvent === 'STORM' && user.eventSpawnedAt) {
-        const stormTimeout = (2 * 60000) / speedMultiplier;
-        if (now - user.eventSpawnedAt >= stormTimeout) {
-            user.xp = Math.max(0, user.xp - 10);
-            user.activeEvent = null;
-            user.eventSpawnedAt = null;
-            user.lastEventTime = now;
-            user.combo = 0; // Storm penalty breaks combo
-            user.stormPenalty = true;
-            changed = true;
-            console.log(`[Game Logic] STORM penalty — user lost 10 XP`);
-        }
-    }
-
-    // 5. Check for new achievements
-    if (checkAchievements(user)) {
-        changed = true;
-    }
-
-    if (changed) {
-        repository.markDirty();
-    }
-}
 
 // --- API Endpoints ---
 
@@ -390,13 +82,7 @@ app.get('/api/db', (req, res) => {
 
 // --- Weather endpoint ---
 app.get('/api/weather', (req, res) => {
-    updateWeather();
-    res.json({
-        type: globalWeather.type,
-        season: getSeason(),
-        changedAt: globalWeather.changedAt,
-        nextChangeAt: globalWeather.nextChangeAt,
-    });
+    res.json(gameStateService.getWeather());
 });
 
 app.post('/api/heartbeat', (req, res) => {
@@ -406,29 +92,7 @@ app.post('/api/heartbeat', (req, res) => {
 
     try {
         const user = repository.ensureUser(username, username === 'Admin');
-        updateUserState(user);
-
-        // Build response with extra info
-        const responseUser = {
-            ...user,
-            weather: globalWeather.type,
-            season: getSeason(),
-            dailyRewardAvailable: !user.dailyRewardClaimed,
-        };
-
-        // --- Clear transient flags ---
-        if (user.justLeveledUp) {
-            user.justLeveledUp = false;
-            repository.markDirty();
-        }
-        if (user.newAchievements) {
-            delete user.newAchievements;
-        }
-        if (user.stormPenalty) {
-            delete user.stormPenalty;
-        }
-
-        res.json(responseUser);
+        res.json(gameStateService.heartbeat(user));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Server Error" });
@@ -441,11 +105,11 @@ app.post('/api/toggle-warp', (req, res) => {
     try {
         if (repository.hasUser(username)) {
             const user = repository.getUser(username);
-            updateUserState(user); // Settle pending XP
+            gameStateService.updateUserState(user); // Settle pending XP
             user.isDemoMode = !user.isDemoMode;
             repository.markDirty();
 
-            const responseUser = { ...user, weather: globalWeather.type, season: getSeason() };
+            const responseUser = gameStateService.toGameResponse(user);
             if (user.justLeveledUp) {
                 user.justLeveledUp = false;
             }
@@ -470,13 +134,13 @@ app.post('/api/action', (req, res) => {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
 
         const user = repository.getUser(username);
-        updateUserState(user); // Update state first
+        gameStateService.updateUserState(user); // Update state first
 
         if (user.activeEvent === action) {
             // Success — use differentiated rewards
             const rewards = EVENT_REWARDS[action] || { xpMin: 3, xpMax: 15, coinMin: 10, coinMax: 30 };
-            const companionBonus = getCompanionBonuses(user);
-            const prestigeBonus = getPrestigeBonuses(user);
+            const companionBonus = gameStateService.getCompanionBonuses(user);
+            const prestigeBonus = gameStateService.getPrestigeBonuses(user);
             const comboCapBase = 10;
             const comboCap = comboCapBase + (prestigeBonus.comboCapBonus || 0);
             const comboMult = 1 + Math.min((user.combo || 0), comboCap) * 0.1;
@@ -520,7 +184,7 @@ app.post('/api/action', (req, res) => {
             user.lastEventTime = Date.now();
 
             // Re-check achievements after action
-            checkAchievements(user);
+            achievementService.checkAchievements(user);
 
             console.log(`[Game Logic] ${username} solved ${action}. Combo: ${user.combo}`);
         } else {
@@ -531,11 +195,7 @@ app.post('/api/action', (req, res) => {
 
         repository.markDirty();
 
-        const responseUser = {
-            ...user,
-            weather: globalWeather.type,
-            season: getSeason(),
-        };
+        const responseUser = gameStateService.toGameResponse(user);
         if (user.justLeveledUp) {
             user.justLeveledUp = false;
         }
@@ -559,7 +219,7 @@ app.post('/api/profile/update', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
         if (profile) {
             // Avatar size limit: 500KB (base64 string ~ 700K chars)
@@ -587,7 +247,7 @@ app.post('/api/store/buy', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
         // Server-side price lookup — ignore client price
         const storeItem = STORE_ITEMS.find(i => i.id === itemId && i.type === type);
@@ -608,7 +268,7 @@ app.post('/api/store/buy', (req, res) => {
             }
 
             // Re-check achievements after purchase
-            checkAchievements(user);
+            achievementService.checkAchievements(user);
 
             repository.markDirty();
             res.json(user);
@@ -627,7 +287,7 @@ app.post('/api/store/equip', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
         if (user.inventory?.unlockedSkins?.includes(itemId) || itemId === 'default') {
             user.inventory.treeSkin = itemId;
@@ -647,7 +307,7 @@ app.post('/api/daily-reward/claim', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
         if (user.dailyRewardClaimed) {
             return res.status(400).json({ error: "Already claimed today" });
@@ -664,7 +324,7 @@ app.post('/api/daily-reward/claim', (req, res) => {
         }
         user.dailyRewardClaimed = true;
 
-        checkAchievements(user);
+        achievementService.checkAchievements(user);
         repository.markDirty();
 
         res.json({ ...user, claimedReward: reward, dayIndex });
@@ -681,7 +341,7 @@ app.post('/api/companion/buy', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
         const comp = COMPANIONS.find(c => c.id === companionId);
         if (!comp) return res.status(400).json({ error: "Companion not found" });
@@ -704,7 +364,7 @@ app.post('/api/companion/buy', (req, res) => {
         user.unlockedCompanions.push(companionId);
         user.companion = companionId; // auto-equip
 
-        checkAchievements(user);
+        achievementService.checkAchievements(user);
         repository.markDirty();
         res.json(user);
     } catch (err) {
@@ -720,7 +380,7 @@ app.post('/api/companion/equip', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
         if (companionId === null) {
             user.companion = null;
@@ -748,7 +408,7 @@ app.post('/api/prestige', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
         if (user.level < 50) {
             return res.status(400).json({ error: "Must be at least level 50 to prestige" });
@@ -756,7 +416,7 @@ app.post('/api/prestige', (req, res) => {
 
         // Award prestige points: 1 per 10 levels
         const pointsEarned = Math.floor(user.level / 10);
-        const startLevel = getPrestigeBonuses(user).startLevel || 1;
+        const startLevel = gameStateService.getPrestigeBonuses(user).startLevel || 1;
 
         user.generation = (user.generation || 0) + 1;
         user.prestigePoints = (user.prestigePoints || 0) + pointsEarned;
@@ -769,7 +429,7 @@ app.post('/api/prestige', (req, res) => {
         user.goldenHourUntil = 0;
         // Keep: skins, companions, profile, achievements, stats, prestige upgrades
 
-        checkAchievements(user);
+        achievementService.checkAchievements(user);
         repository.markDirty();
         res.json({ ...user, pointsEarned });
     } catch (err) {
@@ -785,7 +445,7 @@ app.post('/api/prestige/upgrade', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
         const upg = PRESTIGE_UPGRADES.find(u => u.id === upgradeId);
         if (!upg) return res.status(400).json({ error: "Upgrade not found" });
@@ -819,7 +479,7 @@ app.post('/api/shake', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
         const now = Date.now();
         const cooldown = 30000; // 30 seconds
@@ -876,7 +536,7 @@ app.post('/api/gift', (req, res) => {
         const sender = repository.getUser(fromUsername);
         const receiver = repository.getUser(toUsername);
 
-        const today = getTodayStr();
+        const today = gameStateService.getTodayStr();
         if (sender.lastGiftDate === today) {
             return res.status(400).json({ error: "Already sent a gift today" });
         }
@@ -906,9 +566,9 @@ app.post('/api/minigame/reward', (req, res) => {
     try {
         if (!repository.hasUser(username)) return res.status(404).json({ error: "User not found" });
         const user = repository.getUser(username);
-        updateUserState(user);
+        gameStateService.updateUserState(user);
 
-        const today = getTodayStr();
+        const today = gameStateService.getTodayStr();
         if (user.minigameDate !== today) {
             user.minigameDate = today;
             user.minigameCount = 0;
