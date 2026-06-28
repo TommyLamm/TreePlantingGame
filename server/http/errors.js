@@ -5,10 +5,16 @@ class HttpError extends Error {
   }
 }
 
-const asyncHandler = handler => (req, res, next) =>
-  Promise.resolve().then(() => handler(req, res, next)).catch(next);
+const normalizeError = reason => reason instanceof Error
+  ? reason
+  : new Error(reason == null ? 'Unknown handler error' : String(reason));
+
+const asyncHandler = handler => (req, res, next) => Promise.resolve()
+  .then(() => handler(req, res, next))
+  .catch(reason => next(normalizeError(reason)));
 
 function errorMiddleware(error, req, res, next) {
+  if (res.headersSent) return next(error);
   if (error instanceof HttpError) {
     return res.status(error.status).json({ error: error.message });
   }

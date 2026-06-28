@@ -108,6 +108,52 @@ test('asyncHandler forwards rejected promises to next', async () => {
   assert.deepEqual(forwarded, [error]);
 });
 
+test('asyncHandler normalizes an undefined rejection before forwarding it', async () => {
+  const forwarded = [];
+  const wrapped = asyncHandler(() => Promise.reject(undefined));
+
+  await wrapped({}, {}, value => forwarded.push(value));
+
+  assert.equal(forwarded.length, 1);
+  assert.ok(forwarded[0] instanceof Error);
+  assert.notEqual(forwarded[0], undefined);
+  assert.equal(forwarded[0].message, 'Unknown handler error');
+});
+
+test('asyncHandler normalizes a null rejection before forwarding it', async () => {
+  const forwarded = [];
+  const wrapped = asyncHandler(() => Promise.reject(null));
+
+  await wrapped({}, {}, value => forwarded.push(value));
+
+  assert.equal(forwarded.length, 1);
+  assert.ok(forwarded[0] instanceof Error);
+  assert.notEqual(forwarded[0], null);
+  assert.equal(forwarded[0].message, 'Unknown handler error');
+});
+
+test('asyncHandler normalizes an Express-special string rejection before forwarding it', async () => {
+  const forwarded = [];
+  const wrapped = asyncHandler(() => Promise.reject('route'));
+
+  await wrapped({}, {}, value => forwarded.push(value));
+
+  assert.equal(forwarded.length, 1);
+  assert.ok(forwarded[0] instanceof Error);
+  assert.notEqual(forwarded[0], 'route');
+  assert.equal(forwarded[0].message, 'route');
+});
+
+test('asyncHandler preserves HttpError rejection identity', async () => {
+  const error = new HttpError(422, 'Invalid tree');
+  const forwarded = [];
+  const wrapped = asyncHandler(() => Promise.reject(error));
+
+  await wrapped({}, {}, value => forwarded.push(value));
+
+  assert.deepEqual(forwarded, [error]);
+});
+
 test('asyncHandler passes handler arguments and successful results through', async () => {
   const req = { id: 'request' };
   const res = { id: 'response' };
@@ -138,6 +184,24 @@ test('errorMiddleware serializes HttpError without logging or calling next', () 
   assert.deepEqual(calls.statuses, [409]);
   assert.deepEqual(calls.bodies, [{ error: 'Conflict' }]);
   assert.equal(nextCalls, 0);
+});
+
+test('errorMiddleware delegates errors when response headers were already sent', () => {
+  const error = new HttpError(409, 'Conflict');
+  const nextResult = { delegated: true };
+  const { response, calls } = createResponseSpy({ sent: true });
+  const forwarded = [];
+  response.headersSent = true;
+
+  const actualResult = errorMiddleware(error, {}, response, value => {
+    forwarded.push(value);
+    return nextResult;
+  });
+
+  assert.equal(actualResult, nextResult);
+  assert.deepEqual(forwarded, [error]);
+  assert.deepEqual(calls.statuses, []);
+  assert.deepEqual(calls.bodies, []);
 });
 
 test('errorMiddleware logs unknown errors once and returns a generic 500 response', () => {
