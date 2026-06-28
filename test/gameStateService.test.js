@@ -322,6 +322,111 @@ test('state settlement migrates old user records before applying game logic', ()
   assert.deepEqual(user.achievements, []);
   assert.deepEqual(user.prestigeUpgrades, {});
   assert.equal(harness.dirtyCount(), 1);
+
+  const repairHarness = createHarness();
+  const repairedUser = createUser(repairHarness, {
+    lastLoginDate: '2026-03-15',
+    unlockedCompanions: { legacy: true },
+  });
+  repairHarness.service.updateUserState(repairedUser);
+  assert.deepEqual(repairedUser.unlockedCompanions, []);
+  assert.equal(repairHarness.dirtyCount(), 1);
+});
+
+test('fully migrated users with large avatars are a same-time no-op without serialization', () => {
+  const harness = createHarness();
+  const user = createUser(harness, {
+    lastLoginDate: '2026-03-15',
+    profile: { avatar: 'x'.repeat(2_000_000), birthday: '', signature: '' },
+  });
+
+  harness.service.updateUserState(user);
+
+  assert.equal(harness.dirtyCount(), 0);
+  assert.equal(user.profile.avatar.length, 2_000_000);
+  const source = fs.readFileSync(
+    path.join(__dirname, '../server/services/gameStateService.js'),
+    'utf8',
+  );
+  assert.doesNotMatch(source, /JSON\.stringify/);
+});
+
+test('invalid lastTick values normalize without granting or corrupting earnings', async t => {
+  const invalidValues = [
+    ['null', null],
+    ['numeric string', String(localTime(2026, 3, 15))],
+    ['non-numeric string', 'not-a-timestamp'],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['future timestamp', localTime(2026, 3, 15) + 1],
+  ];
+
+  for (const [label, lastTick] of invalidValues) {
+    await t.test(label, () => {
+      const harness = createHarness();
+      const user = createUser(harness, { lastLoginDate: '2026-03-15', lastTick });
+
+      harness.service.updateUserState(user);
+
+      assert.equal(user.lastTick, harness.now());
+      assert.equal(user.xp, 0);
+      assert.equal(user.coins, 0);
+      assert.equal(user.totalXpEarned, 0);
+      assert.equal(user.totalCoinsEarned, 0);
+      assert.equal(user.lastOfflineXp, 0);
+      assert.equal(user.lastOfflineCoins, 0);
+      assert.equal(harness.dirtyCount(), 1);
+    });
+  }
+});
+
+test('future lastTick normalization marks a level-100 user dirty', () => {
+  const harness = createHarness();
+  const user = createUser(harness, {
+    level: 100,
+    achievements: ['lvl10', 'lvl25', 'lvl50', 'lvl100'],
+    lastLoginDate: '2026-03-15',
+    lastTick: harness.now() + 60000,
+  });
+
+  harness.service.updateUserState(user);
+
+  assert.equal(user.lastTick, harness.now());
+  assert.equal(user.xp, 0);
+  assert.equal(user.coins, 0);
+  assert.equal(harness.dirtyCount(), 1);
+});
+
+test('a large valid elapsed time retains the existing settlement formula', () => {
+  const harness = createHarness();
+  const user = createUser(harness);
+  const elapsed = 365 * 24 * 3600000;
+  harness.setNow(harness.now() + elapsed);
+  user.lastLoginDate = harness.service.getTodayStr();
+  user.lastEventTime = harness.now() + 1;
+
+  harness.service.updateUserState(user);
+
+  const gainedXp = (elapsed / 3600000) * 1.2;
+  const gainedCoins = (elapsed / 3600000) * 50;
+  assert.equal(user.level, 2);
+  assertClose(user.xp, gainedXp - 11);
+  assertClose(user.coins, gainedCoins);
+  assertClose(user.totalXpEarned, gainedXp);
+  assertClose(user.totalCoinsEarned, gainedCoins);
+  assertClose(user.lastOfflineXp, Math.floor(gainedXp * 10) / 10);
+  assert.equal(user.lastOfflineCoins, Math.floor(gainedCoins));
+  assert.equal(user.lastTick, harness.now());
+  assert.equal(harness.dirtyCount(), 1);
+});
+
+test('an unchanged same-time state does not mark the repository dirty', () => {
+  const harness = createHarness();
+  const user = createUser(harness, { lastLoginDate: '2026-03-15' });
+
+  harness.service.updateUserState(user);
+
+  assert.equal(harness.dirtyCount(), 0);
 });
 
 test('state and achievement services have no Express request/response dependency', () => {

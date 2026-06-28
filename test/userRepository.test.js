@@ -163,6 +163,26 @@ test('migrateUser fills only missing top-level defaults and repairs legacy conta
   assert.deepEqual(existingContainers.unlockedCompanions, []);
 });
 
+test('migrateUser reports only actual mutations through its optional callback', () => {
+  const current = createDefaultUser(false, 1000);
+  let unchangedSignals = 0;
+
+  assert.equal(migrateUser(current, 1000, () => { unchangedSignals += 1; }), current);
+  assert.equal(unchangedSignals, 0);
+
+  const missingFields = {};
+  let missingSignals = 0;
+  assert.equal(migrateUser(missingFields, 1000, () => { missingSignals += 1; }), missingFields);
+  assert.ok(missingSignals > 0);
+
+  const repairedContainer = createDefaultUser(false, 1000);
+  repairedContainer.unlockedCompanions = { legacy: true };
+  let repairSignals = 0;
+  migrateUser(repairedContainer, 1000, () => { repairSignals += 1; });
+  assert.equal(repairSignals, 1);
+  assert.deepEqual(repairedContainer.unlockedCompanions, []);
+});
+
 test('initialize creates a missing database and Admin account', async (t) => {
   const directory = await createTempDirectory(t);
   const dbFile = path.join(directory, 'save.json');

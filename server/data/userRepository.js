@@ -42,18 +42,35 @@ function createDefaultUser(isAdmin = false, now = Date.now()) {
     };
 }
 
-function migrateUser(user, now = Date.now()) {
+function migrateUser(user, now = Date.now(), onChange) {
     const defaults = createDefaultUser(false, now);
+    const reportChange = typeof onChange === 'function' ? onChange : () => {};
     for (const key of Object.keys(defaults)) {
         if (user[key] === undefined) {
             user[key] = defaults[key];
+            reportChange();
         }
     }
-    if (!user.inventory) user.inventory = defaults.inventory;
-    if (!user.profile) user.profile = defaults.profile;
-    if (!user.achievements) user.achievements = [];
-    if (!user.prestigeUpgrades) user.prestigeUpgrades = {};
-    if (!Array.isArray(user.unlockedCompanions)) user.unlockedCompanions = [];
+    if (!user.inventory) {
+        user.inventory = defaults.inventory;
+        reportChange();
+    }
+    if (!user.profile) {
+        user.profile = defaults.profile;
+        reportChange();
+    }
+    if (!user.achievements) {
+        user.achievements = [];
+        reportChange();
+    }
+    if (!user.prestigeUpgrades) {
+        user.prestigeUpgrades = {};
+        reportChange();
+    }
+    if (!Array.isArray(user.unlockedCompanions)) {
+        user.unlockedCompanions = [];
+        reportChange();
+    }
     return user;
 }
 

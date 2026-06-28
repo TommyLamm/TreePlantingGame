@@ -111,13 +111,24 @@ function createGameStateService({
 
     function updateUserState(user) {
         const currentTime = now();
-        const beforeMigration = JSON.stringify(user);
-        migrateUser(user, currentTime);
-        let changed = JSON.stringify(user) !== beforeMigration;
+        let changed = false;
+        migrateUser(user, currentTime, () => {
+            changed = true;
+        });
 
         if (checkDailyLogin(user, currentTime)) changed = true;
 
-        const dt = currentTime - user.lastTick;
+        let dt = 0;
+        if (!Number.isFinite(user.lastTick) || user.lastTick > currentTime) {
+            user.lastTick = currentTime;
+            changed = true;
+        } else {
+            dt = currentTime - user.lastTick;
+            if (user.lastTick !== currentTime) {
+                user.lastTick = currentTime;
+                changed = true;
+            }
+        }
         const speedMultiplier = user.isDemoMode ? 600 : 1;
 
         if (dt > 0 && dt <= 15000) {
@@ -179,8 +190,6 @@ function createGameStateService({
                 user.justLeveledUp = true;
             }
         }
-
-        user.lastTick = currentTime;
 
         if (user.xp !== previousXp || user.level !== previousLevel || user.coins !== previousCoins) {
             changed = true;
