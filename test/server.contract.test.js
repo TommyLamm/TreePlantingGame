@@ -56,6 +56,28 @@ test('public metadata endpoints expose their established contracts', async () =>
   );
 });
 
+test('every established API route remains mounted', async () => {
+  const routes = [
+    ['GET', '/api/health'], ['GET', '/api/db'], ['GET', '/api/weather'],
+    ['POST', '/api/heartbeat'], ['POST', '/api/toggle-warp'], ['POST', '/api/action'],
+    ['POST', '/api/profile/update'], ['POST', '/api/store/buy'], ['POST', '/api/store/equip'],
+    ['POST', '/api/daily-reward/claim'], ['POST', '/api/companion/buy'], ['POST', '/api/companion/equip'],
+    ['POST', '/api/prestige'], ['POST', '/api/prestige/upgrade'], ['POST', '/api/shake'],
+    ['GET', '/api/garden/missing'], ['POST', '/api/gift'], ['POST', '/api/minigame/reward'],
+    ['GET', '/api/users'], ['GET', '/api/leaderboard'], ['GET', '/api/achievements/missing'],
+  ];
+
+  for (const [method, pathname] of routes) {
+    const response = await server.request(pathname, {
+      method,
+      body: method === 'POST' ? {} : undefined,
+    });
+    const isEstablishedMissingUser = response.status === 404
+      && response.body?.error === 'User not found';
+    assert.ok(response.status !== 404 || isEstablishedMissingUser, `${method} ${pathname}`);
+  }
+});
+
 test('heartbeat validates usernames and returns the established user shape', async () => {
   assert.deepEqual(await post('/api/heartbeat'), {
     status: 400,
