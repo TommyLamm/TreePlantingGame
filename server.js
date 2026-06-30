@@ -18,7 +18,6 @@ const gameStateService = createGameStateService({ repository, achievementService
 const progressionService = createProgressionService({ repository, gameStateService, achievementService });
 const rewardService = createRewardService({ repository, gameStateService, achievementService });
 const socialService = createSocialService({ repository, gameStateService });
-repository.startAutoSave();
 
 const app = createApp({
     repository,
@@ -29,35 +28,54 @@ const app = createApp({
     clientDistPath: path.join(__dirname, 'client/dist'),
 });
 
+let shutdownPromise;
+
 async function shutdown(signal) {
-    console.log(`\n[Shutdown] Received ${signal}. Saving data to disk...`);
-    repository.stopAutoSave();
-    if (repository.isDirty()) {
-        await repository.flush();
-        if (!repository.isDirty()) {
+    if (!shutdownPromise) {
+        shutdownPromise = (async () => {
+            console.log(`\n[Shutdown] Received ${signal}. Saving data to disk...`);
+            repository.stopAutoSave();
+            if (!repository.isDirty()) {
+                console.log('[Shutdown] No pending changes. Data is safe.');
+                process.exit(0);
+                return;
+            }
+
+            try {
+                await repository.flush();
+                if (repository.isDirty()) {
+                    throw new Error('Data remains unsaved after flush.');
+                }
+            } catch (error) {
+                console.error('[Shutdown Error] Failed to save data:', error);
+                process.exit(1);
+                return;
+            }
+
             console.log('[Shutdown] Data saved successfully.');
-        } else {
-            console.error('[Shutdown Error] Failed to save data.');
-        }
-    } else {
-        console.log('[Shutdown] No pending changes. Data is safe.');
+            process.exit(0);
+        })();
     }
-    process.exit(0);
+    return shutdownPromise;
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
 const server = app.listen(PORT, () => {
+    repository.startAutoSave();
     console.log(`\n🌱 Zen Arboretum Server running on http://localhost:${PORT}`);
 });
 
 server.on('error', (error) => {
+    repository.stopAutoSave();
     if (error.code === 'EADDRINUSE') {
         console.error(`\n[Server] Port ${PORT} is already in use.`);
         console.error('[Server] Another game server is probably still running.');
         console.error(`[Server] Stop the existing process or start this one with a different port, for example: $env:PORT=7778; node server.js\n`);
         process.exit(1);
+        return;
     }
-    throw error;
+    console.error('[Server Error]', error);
+    process.exit(1);
 });
