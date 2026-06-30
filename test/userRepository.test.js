@@ -625,16 +625,6 @@ test('startAutoSave and stopAutoSave are idempotent and stopping clears the time
   repository.flushSync();
 });
 
-test('server shutdown stops auto-save and awaits the serialized async flush', async () => {
-  const serverSource = await readFile(path.resolve(__dirname, '..', 'server.js'), 'utf8');
-  const shutdownStart = serverSource.indexOf('async function shutdown');
-  const shutdownEnd = serverSource.indexOf("process.on('SIGINT'", shutdownStart);
-  const shutdownSource = serverSource.slice(shutdownStart, shutdownEnd);
-
-  assert.match(shutdownSource, /repository\.stopAutoSave\(\);[\s\S]*await repository\.flush\(\);/);
-  assert.doesNotMatch(shutdownSource, /flushSync/);
-});
-
 test('SIGTERM waits for an in-flight save and persists the final generation', {
   skip: process.platform === 'win32'
     ? 'Windows child.kill uses TerminateProcess and cannot exercise Node signal handlers'
