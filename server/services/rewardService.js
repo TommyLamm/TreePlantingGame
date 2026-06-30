@@ -1,6 +1,10 @@
 const { STORE_ITEMS, COMPANIONS, DAILY_REWARDS } = require('../config/gameData');
 const { HttpError } = require('../http/errors');
 
+const isValidCoinBalance = value => typeof value === 'number'
+  && Number.isFinite(value)
+  && value >= 0;
+
 function createRewardService({
   repository,
   gameStateService,
@@ -9,6 +13,9 @@ function createRewardService({
   random = Math.random,
 }) {
   function buyItem(user, itemId, type) {
+    if (!isValidCoinBalance(user.coins)) {
+      throw new HttpError(400, 'Invalid coin balance');
+    }
     gameStateService.updateUserState(user);
 
     const storeItem = STORE_ITEMS.find(item => item.id === itemId && item.type === type);
@@ -67,6 +74,9 @@ function createRewardService({
   }
 
   function buyCompanion(user, companionId) {
+    if (!isValidCoinBalance(user.coins)) {
+      throw new HttpError(400, 'Invalid coin balance');
+    }
     gameStateService.updateUserState(user);
 
     const comp = COMPANIONS.find(item => item.id === companionId);
@@ -134,6 +144,12 @@ function createRewardService({
   }
 
   function claimMinigameReward(user, gameType, score) {
+    if (gameType !== 'memory' && gameType !== 'water') {
+      throw new HttpError(400, 'Invalid mini-game');
+    }
+    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0) {
+      throw new HttpError(400, 'Invalid score');
+    }
     gameStateService.updateUserState(user);
 
     const today = gameStateService.getTodayStr();
@@ -146,7 +162,7 @@ function createRewardService({
       throw new HttpError(400, 'Max 3 mini-games per day');
     }
 
-    const coinsEarned = Math.min(Math.floor((score || 0) * 5), 200);
+    const coinsEarned = Math.min(Math.floor(score * 5), 200);
     user.coins += coinsEarned;
     user.totalCoinsEarned = (user.totalCoinsEarned || 0) + coinsEarned;
     user.minigameCount++;

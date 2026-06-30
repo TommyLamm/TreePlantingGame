@@ -184,24 +184,74 @@ test('successful action applies the one-level rule and snapshots the level-up tr
   assert.equal(value.justLeveledUp, false);
 });
 
-test('profile updates only supplied fields, permits no profile body, and rejects oversized avatars', () => {
+test('profile updates only supplied fields, permits no profile body, and accepts validation boundaries', () => {
   const h = harness();
   const service = createProgressionService(h.dependencies);
   const value = user({ profile: { avatar: 'old', birthday: 'old-day', signature: 'old-sig' } });
 
-  assert.equal(service.updateProfile(value, { signature: 'new-sig' }), value);
-  assert.deepEqual(value.profile, { avatar: 'old', birthday: 'old-day', signature: 'new-sig' });
+  assert.equal(service.updateProfile(value, {
+    avatar: 'x'.repeat(700000),
+    birthday: '2024-02-29',
+    signature: 's'.repeat(50),
+  }), value);
+  assert.deepEqual(value.profile, {
+    avatar: 'x'.repeat(700000),
+    birthday: '2024-02-29',
+    signature: 's'.repeat(50),
+  });
+  assert.equal(service.updateProfile(value, { avatar: null, birthday: '', signature: 'new-sig' }), value);
+  assert.deepEqual(value.profile, { avatar: null, birthday: '', signature: 'new-sig' });
   assert.equal(service.updateProfile(value), value);
-  assert.equal(h.dirty(), 2);
-  assert.equal(h.updates.length, 2);
+  assert.equal(h.dirty(), 3);
+  assert.equal(h.updates.length, 3);
+});
+
+test('profile rejects malformed schemas before settlement or mutation', () => {
+  const invalidProfiles = [
+    [null, 'Invalid profile'],
+    [[], 'Invalid profile'],
+    [new Date(), 'Invalid profile'],
+    [{ avatar: {} }, 'Invalid avatar'],
+    [{ avatar: 1 }, 'Invalid avatar'],
+    [{ signature: null }, 'Invalid signature'],
+    [{ signature: 'x'.repeat(51) }, 'Invalid signature'],
+    [{ birthday: null }, 'Invalid birthday'],
+    [{ birthday: '2023-02-29' }, 'Invalid birthday'],
+    [{ birthday: '2024-2-29' }, 'Invalid birthday'],
+    [{ birthday: 'not-a-date' }, 'Invalid birthday'],
+  ];
+
+  for (const [profile, message] of invalidProfiles) {
+    const h = harness();
+    const service = createProgressionService(h.dependencies);
+    const value = user({ profile: { avatar: 'old', birthday: '2000-01-01', signature: 'old' } });
+    assertHttpError(() => service.updateProfile(value, profile), 400, message);
+    assert.deepEqual(value.profile, { avatar: 'old', birthday: '2000-01-01', signature: 'old' });
+    assert.equal(h.updates.length, 0);
+    assert.equal(h.dirty(), 0);
+  }
+
+  const nullPrototype = Object.create(null);
+  nullPrototype.signature = 'valid';
+  const h = harness();
+  const value = user();
+  assert.equal(createProgressionService(h.dependencies).updateProfile(value, nullPrototype), value);
+  assert.equal(value.profile.signature, 'valid');
+});
+
+test('profile rejects oversized avatar strings before settlement or mutation', () => {
+  const h = harness();
+  const service = createProgressionService(h.dependencies);
+  const value = user({ profile: { avatar: 'old', birthday: '', signature: '' } });
 
   assertHttpError(
     () => service.updateProfile(value, { avatar: 'x'.repeat(700001) }),
     400,
     'Avatar too large. Must be under 500KB.',
   );
-  assert.equal(h.updates.length, 3);
-  assert.equal(h.dirty(), 2);
+  assert.deepEqual(value.profile, { avatar: 'old', birthday: '', signature: '' });
+  assert.equal(h.updates.length, 0);
+  assert.equal(h.dirty(), 0);
 });
 
 test('prestige enforces level 50 then resets progression while retaining owned data', () => {
@@ -298,6 +348,49 @@ test('store purchase validates configured id/type and funds before mutating', ()
   assert.equal(h.dirty(), 3);
 });
 
+test('store purchase rejects invalid balances before settlement or inventory mutation', () => {
+  for (const coins of [Number.NaN, Number.POSITIVE_INFINITY, -1, '500', null]) {
+    const h = harness();
+    const service = createRewardService(h.dependencies);
+    const value = user({ coins });
+    assertHttpError(() => service.buyItem(value, 'xpBuff', 'buff'), 400, 'Invalid coin balance');
+    assert.equal(value.inventory.xpBuff, false);
+    assert.equal(value.coins, coins);
+    assert.equal(h.updates.length, 0);
+    assert.equal(h.dirty(), 0);
+  }
+
+  const h = harness();
+  assertHttpError(
+    () => createRewardService(h.dependencies).buyItem(user({ coins: 0 }), 'xpBuff', 'buff'),
+    400,
+    'Not enough coins',
+  );
+  assert.equal(h.updates.length, 1);
+});
+
+test('ordinary reward domain errors still occur after settlement and may mark dirty', () => {
+  let dirty = 0;
+  const value = user({ coins: 10, xp: 1 });
+  const service = createRewardService({
+    repository: { markDirty: () => { dirty += 1; } },
+    gameStateService: {
+      updateUserState(current) {
+        current.coins += 3;
+        current.xp += 2;
+        dirty += 1;
+      },
+    },
+    achievementService: { checkAchievements() {} },
+  });
+
+  assertHttpError(() => service.buyItem(value, 'missing', 'skin'), 400, 'Item not found');
+  assert.equal(value.coins, 13);
+  assert.equal(value.xp, 3);
+  assert.equal(value.inventory.treeSkin, 'default');
+  assert.equal(dirty, 1);
+});
+
 test('skin equip mutates owned/default skins and leaves unowned equip as a successful no-op', () => {
   const h = harness();
   const service = createRewardService(h.dependencies);
@@ -350,6 +443,28 @@ test('companion purchase preserves every validation and auto-equips success', ()
   assert.equal(h.achievementChecks.length, 1);
 });
 
+test('companion purchase rejects invalid balances before settlement while zero remains valid', () => {
+  for (const coins of [Number.NaN, Number.NEGATIVE_INFINITY, -0.01, '0', null]) {
+    const h = harness();
+    const value = user({ coins });
+    assertHttpError(
+      () => createRewardService(h.dependencies).buyCompanion(value, 'butterfly'),
+      400,
+      'Invalid coin balance',
+    );
+    assert.deepEqual(value.unlockedCompanions, []);
+    assert.equal(value.companion, null);
+    assert.equal(h.updates.length, 0);
+    assert.equal(h.dirty(), 0);
+  }
+
+  const h = harness();
+  const value = user({ coins: 0 });
+  createRewardService(h.dependencies).buyCompanion(value, 'butterfly');
+  assert.equal(value.coins, 0);
+  assert.deepEqual(value.unlockedCompanions, ['butterfly']);
+});
+
 test('companion equip rejects unowned, equips owned, and permits null unequip', () => {
   const h = harness();
   const service = createRewardService(h.dependencies);
@@ -386,29 +501,55 @@ test('tree shake preserves cooldown, no-drop, drop, and deterministic boundaries
   assert.equal(dropHarness.dirty(), 1);
 });
 
-test('minigame resets dates, enforces three per day, caps rewards, and retains legacy score coercion', () => {
+test('minigame resets dates, enforces three per day, and caps valid rewards', () => {
   const h = harness();
   const service = createRewardService(h.dependencies);
   const reset = user({ minigameDate: '2026-06-29', minigameCount: 3 });
-  assert.deepEqual(service.claimMinigameReward(reset, 'ignored', 50), { coinsEarned: 200, gamesRemaining: 2 });
+  assert.deepEqual(service.claimMinigameReward(reset, 'memory', 50), { coinsEarned: 200, gamesRemaining: 2 });
   assert.equal(reset.minigameDate, '2026-06-30');
   assert.equal(reset.minigameCount, 1);
 
   assertHttpError(
-    () => service.claimMinigameReward(user({ minigameDate: '2026-06-30', minigameCount: 3 }), 'anything', 1),
+    () => service.claimMinigameReward(user({ minigameDate: '2026-06-30', minigameCount: 3 }), 'water', 1),
     400,
     'Max 3 mini-games per day',
   );
+  assert.deepEqual(
+    service.claimMinigameReward(user({ minigameDate: '2026-06-30' }), 'water', 1.9),
+    { coinsEarned: 9, gamesRemaining: 2 },
+  );
+});
 
-  const negative = user({ coins: 10, minigameDate: '2026-06-30' });
-  assert.deepEqual(service.claimMinigameReward(negative, 'x', -2), { coinsEarned: -10, gamesRemaining: 2 });
-  assert.equal(negative.coins, 0);
+test('minigame rejects invalid game types and scores before settlement or mutation', () => {
+  for (const gameType of ['ignored', '', null, undefined, 'Memory']) {
+    const h = harness();
+    const value = user({ coins: 10, minigameDate: '2026-06-29', minigameCount: 2 });
+    assertHttpError(
+      () => createRewardService(h.dependencies).claimMinigameReward(value, gameType, 1),
+      400,
+      'Invalid mini-game',
+    );
+    assert.equal(value.coins, 10);
+    assert.equal(value.minigameDate, '2026-06-29');
+    assert.equal(value.minigameCount, 2);
+    assert.equal(h.updates.length, 0);
+    assert.equal(h.dirty(), 0);
+  }
 
-  const nonNumeric = user({ coins: 10, minigameDate: '2026-06-30' });
-  const result = service.claimMinigameReward(nonNumeric, 'x', 'nope');
-  assert.equal(Number.isNaN(result.coinsEarned), true);
-  assert.equal(Number.isNaN(nonNumeric.coins), true);
-  assert.equal(result.gamesRemaining, 2);
+  for (const score of [-1, Number.NaN, Number.POSITIVE_INFINITY, '1', null, undefined]) {
+    const h = harness();
+    const value = user({ coins: 10, minigameDate: '2026-06-29', minigameCount: 2 });
+    assertHttpError(
+      () => createRewardService(h.dependencies).claimMinigameReward(value, 'memory', score),
+      400,
+      'Invalid score',
+    );
+    assert.equal(value.coins, 10);
+    assert.equal(value.minigameDate, '2026-06-29');
+    assert.equal(value.minigameCount, 2);
+    assert.equal(h.updates.length, 0);
+    assert.equal(h.dirty(), 0);
+  }
 });
 
 test('garden returns the established projection and rejects missing users', () => {
@@ -454,6 +595,36 @@ test('gift preserves self, missing, daily, funds, transfer, and response contrac
   assert.equal(receiver.coins, 60);
   assert.equal(receiver.totalCoinsEarned, 50);
   assert.equal(h.dirty(), 1);
+});
+
+test('gift rejects invalid arithmetic balances before any transfer mutation', () => {
+  const invalidCases = [
+    { senderCoins: Number.NaN, receiverCoins: 10, receiverTotal: 0 },
+    { senderCoins: Number.POSITIVE_INFINITY, receiverCoins: 10, receiverTotal: 0 },
+    { senderCoins: -1, receiverCoins: 10, receiverTotal: 0 },
+    { senderCoins: '100', receiverCoins: 10, receiverTotal: 0 },
+    { senderCoins: null, receiverCoins: 10, receiverTotal: 0 },
+    { senderCoins: 100, receiverCoins: Number.NaN, receiverTotal: 0 },
+    { senderCoins: 100, receiverCoins: -1, receiverTotal: 0 },
+    { senderCoins: 100, receiverCoins: 10, receiverTotal: Number.POSITIVE_INFINITY },
+    { senderCoins: 100, receiverCoins: 10, receiverTotal: null },
+  ];
+
+  for (const values of invalidCases) {
+    const sender = user({ coins: values.senderCoins });
+    const receiver = user({ coins: values.receiverCoins, totalCoinsEarned: values.receiverTotal });
+    const h = harness({ users: { Alice: sender, Bob: receiver } });
+    assertHttpError(
+      () => createSocialService(h.dependencies).sendGift('Alice', 'Bob'),
+      400,
+      'Invalid coin balance',
+    );
+    assert.equal(sender.coins, values.senderCoins);
+    assert.equal(receiver.coins, values.receiverCoins);
+    assert.equal(receiver.totalCoinsEarned, values.receiverTotal);
+    assert.equal(sender.lastGiftDate, null);
+    assert.equal(h.dirty(), 0);
+  }
 });
 
 test('social lists users and sorts the top 20 leaderboard by generation, level, then XP without Admin', () => {

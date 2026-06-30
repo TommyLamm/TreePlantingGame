@@ -1,6 +1,46 @@
 const { EVENT_REWARDS, PRESTIGE_UPGRADES } = require('../config/gameData');
 const { HttpError } = require('../http/errors');
 
+function isPlainObject(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function isValidBirthday(value) {
+  if (value === '') return true;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (year < 1) return false;
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}
+
+function validateProfile(profile) {
+  if (!isPlainObject(profile)) throw new HttpError(400, 'Invalid profile');
+
+  if (profile.avatar !== undefined) {
+    if (profile.avatar !== null && typeof profile.avatar !== 'string') {
+      throw new HttpError(400, 'Invalid avatar');
+    }
+    if (typeof profile.avatar === 'string' && profile.avatar.length > 700000) {
+      throw new HttpError(400, 'Avatar too large. Must be under 500KB.');
+    }
+  }
+  if (profile.signature !== undefined
+    && (typeof profile.signature !== 'string' || profile.signature.length > 50)) {
+    throw new HttpError(400, 'Invalid signature');
+  }
+  if (profile.birthday !== undefined && !isValidBirthday(profile.birthday)) {
+    throw new HttpError(400, 'Invalid birthday');
+  }
+}
+
 function createProgressionService({
   repository,
   gameStateService,
@@ -90,13 +130,11 @@ function createProgressionService({
   }
 
   function updateProfile(user, profile) {
+    if (profile !== undefined) validateProfile(profile);
     gameStateService.updateUserState(user);
 
-    if (profile) {
+    if (profile !== undefined) {
       if (profile.avatar !== undefined) {
-        if (profile.avatar && typeof profile.avatar === 'string' && profile.avatar.length > 700000) {
-          throw new HttpError(400, 'Avatar too large. Must be under 500KB.');
-        }
         user.profile.avatar = profile.avatar;
       }
       if (profile.birthday !== undefined) user.profile.birthday = profile.birthday;

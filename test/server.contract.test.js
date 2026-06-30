@@ -4,6 +4,7 @@ const { readFile } = require('node:fs/promises');
 const { after, before, test } = require('node:test');
 
 const { startServer } = require('./helpers/serverHarness');
+const { createDefaultUser } = require('../server/data/userRepository');
 
 const realDbFile = path.resolve(__dirname, '..', 'save.json');
 
@@ -177,4 +178,91 @@ test('gift rejects self-gifts and distinguishes missing senders and recipients',
     status: 404,
     body: { error: 'Recipient not found' },
   });
+});
+
+test('malformed minigame input is rejected before settlement and cannot corrupt coins', async () => {
+  const username = 'ScoreValidation';
+  const value = createDefaultUser(false, Date.now());
+  value.level = 100;
+  value.coins = 123;
+  const isolated = await startServer({ [username]: value });
+
+  try {
+    assert.deepEqual(await (async () => {
+      const response = await isolated.request('/api/minigame/reward', {
+        method: 'POST',
+        body: { username, gameType: 'memory', score: 'not-a-number' },
+      });
+      return { status: response.status, body: response.body };
+    })(), { status: 400, body: { error: 'Invalid score' } });
+
+    const state = await isolated.request('/api/heartbeat', {
+      method: 'POST',
+      body: { username },
+    });
+    assert.equal(state.status, 200);
+    assert.equal(state.body.coins, 123);
+    assert.equal(Number.isFinite(state.body.coins), true);
+    assert.equal(state.body.minigameCount, 0);
+    assert.equal(state.body.minigameDate, null);
+  } finally {
+    await isolated.stop();
+  }
+});
+
+test('profile API validates schemas before mutation and accepts exact boundaries', async () => {
+  const username = 'ProfileValid';
+  const value = createDefaultUser(false, Date.now());
+  value.level = 100;
+  value.profile = { avatar: 'old', birthday: '2000-01-01', signature: 'old' };
+  const isolated = await startServer({ [username]: value });
+
+  async function isolatedPost(profile) {
+    const response = await isolated.request('/api/profile/update', {
+      method: 'POST',
+      body: { username, profile },
+    });
+    return { status: response.status, body: response.body };
+  }
+
+  try {
+    for (const [profile, message] of [
+      [{ avatar: {} }, 'Invalid avatar'],
+      [{ signature: 'x'.repeat(51) }, 'Invalid signature'],
+      [{ birthday: '2023-02-29' }, 'Invalid birthday'],
+      [['array'], 'Invalid profile'],
+      [null, 'Invalid profile'],
+      [{ avatar: 'x'.repeat(700001) }, 'Avatar too large. Must be under 500KB.'],
+    ]) {
+      assert.deepEqual(await isolatedPost(profile), { status: 400, body: { error: message } });
+    }
+
+    const afterRejections = await isolated.request('/api/heartbeat', {
+      method: 'POST',
+      body: { username },
+    });
+    assert.deepEqual(afterRejections.body.profile, {
+      avatar: 'old',
+      birthday: '2000-01-01',
+      signature: 'old',
+    });
+
+    const accepted = await isolatedPost({
+      avatar: 'x'.repeat(700000),
+      birthday: '2024-02-29',
+      signature: 's'.repeat(50),
+    });
+    assert.equal(accepted.status, 200);
+    assert.equal(accepted.body.profile.avatar.length, 700000);
+    assert.equal(accepted.body.profile.birthday, '2024-02-29');
+    assert.equal(accepted.body.profile.signature, 's'.repeat(50));
+
+    const partial = await isolatedPost({ signature: 'partial' });
+    assert.equal(partial.status, 200);
+    assert.equal(partial.body.profile.avatar.length, 700000);
+    assert.equal(partial.body.profile.birthday, '2024-02-29');
+    assert.equal(partial.body.profile.signature, 'partial');
+  } finally {
+    await isolated.stop();
+  }
 });

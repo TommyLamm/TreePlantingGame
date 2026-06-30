@@ -1,5 +1,9 @@
 const { HttpError } = require('../http/errors');
 
+const isValidCoinBalance = value => typeof value === 'number'
+  && Number.isFinite(value)
+  && value >= 0;
+
 function createSocialService({ repository, gameStateService }) {
   function getGarden(username) {
     const user = repository.getUser(username);
@@ -25,6 +29,11 @@ function createSocialService({ repository, gameStateService }) {
     if (!sender) throw new HttpError(404, 'Sender not found');
     const receiver = repository.getUser(toUsername);
     if (!receiver) throw new HttpError(404, 'Recipient not found');
+    if (!isValidCoinBalance(sender.coins)
+      || !isValidCoinBalance(receiver.coins)
+      || !isValidCoinBalance(receiver.totalCoinsEarned)) {
+      throw new HttpError(400, 'Invalid coin balance');
+    }
 
     const today = gameStateService.getTodayStr();
     if (sender.lastGiftDate === today) {
