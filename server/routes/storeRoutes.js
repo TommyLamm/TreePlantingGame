@@ -5,51 +5,51 @@ const { requireValidUsername, requireExistingUser } = require('../http/userConte
 function createStoreRoutes({ repository, rewardService }) {
   const router = express.Router();
 
-  router.post('/store/buy', asyncHandler((req, res) => {
+  router.post('/store/buy', asyncHandler(async (req, res) => {
     const { itemId, type } = req.body;
     const username = requireValidUsername(req.body.username);
     const user = requireExistingUser(repository, username);
-    res.json(rewardService.buyItem(user, itemId, type));
+    res.json(await rewardService.buyItem(user, itemId, type));
   }));
 
-  router.post('/store/equip', asyncHandler((req, res) => {
+  router.post('/store/equip', asyncHandler(async (req, res) => {
     const { itemId } = req.body;
     const username = requireValidUsername(req.body.username);
     const user = requireExistingUser(repository, username);
-    res.json(rewardService.equipItem(user, itemId));
+    res.json(await rewardService.equipItem(user, itemId));
   }));
 
-  router.post('/daily-reward/claim', asyncHandler((req, res) => {
+  router.post('/daily-reward/claim', asyncHandler(async (req, res) => {
     const username = requireValidUsername(req.body.username);
     const user = requireExistingUser(repository, username);
-    res.json(rewardService.claimDailyReward(user));
+    res.json(await rewardService.claimDailyReward(user));
   }));
 
-  router.post('/companion/buy', asyncHandler((req, res) => {
+  router.post('/companion/buy', asyncHandler(async (req, res) => {
     const { companionId } = req.body;
     const username = requireValidUsername(req.body.username);
     const user = requireExistingUser(repository, username);
-    res.json(rewardService.buyCompanion(user, companionId));
+    res.json(await rewardService.buyCompanion(user, companionId));
   }));
 
-  router.post('/companion/equip', asyncHandler((req, res) => {
+  router.post('/companion/equip', asyncHandler(async (req, res) => {
     const { companionId } = req.body;
     const username = requireValidUsername(req.body.username);
     const user = requireExistingUser(repository, username);
-    res.json(rewardService.equipCompanion(user, companionId));
+    res.json(await rewardService.equipCompanion(user, companionId));
   }));
 
-  router.post('/shake', asyncHandler((req, res) => {
+  router.post('/shake', asyncHandler(async (req, res) => {
     const username = requireValidUsername(req.body.username);
     const user = requireExistingUser(repository, username);
-    res.json(rewardService.shakeTree(user));
+    res.json(await rewardService.shakeTree(user));
   }));
 
-  router.post('/minigame/reward', asyncHandler((req, res) => {
+  router.post('/minigame/reward', asyncHandler(async (req, res) => {
     const { gameType, score } = req.body;
     const username = requireValidUsername(req.body.username);
     const user = requireExistingUser(repository, username);
-    res.json(rewardService.claimMinigameReward(user, gameType, score));
+    res.json(await rewardService.claimMinigameReward(user, gameType, score));
   }));
 
   return router;

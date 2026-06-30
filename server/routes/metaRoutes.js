@@ -20,8 +20,8 @@ function createMetaRoutes({ repository, gameStateService }) {
     });
   }));
 
-  router.get('/weather', asyncHandler((req, res) => {
-    res.json(gameStateService.getWeather());
+  router.get('/weather', asyncHandler(async (req, res) => {
+    res.json(await gameStateService.getWeather());
   }));
 
   return router;

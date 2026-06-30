@@ -8,6 +8,18 @@ const { createDefaultUser } = require('../server/data/userRepository');
 
 const realDbFile = path.resolve(__dirname, '..', 'save.json');
 
+const routeManifest = [
+  ['GET', '/api/health'], ['GET', '/api/db'], ['GET', '/api/weather'],
+  ['POST', '/api/heartbeat'], ['POST', '/api/toggle-warp'], ['POST', '/api/action'],
+  ['POST', '/api/profile/update'], ['POST', '/api/store/buy'], ['POST', '/api/store/equip'],
+  ['POST', '/api/daily-reward/claim'], ['POST', '/api/companion/buy'], ['POST', '/api/companion/equip'],
+  ['POST', '/api/prestige'], ['POST', '/api/prestige/upgrade'], ['POST', '/api/shake'],
+  ['GET', '/api/garden/missing', { error: 'User not found' }],
+  ['POST', '/api/gift'], ['POST', '/api/minigame/reward'],
+  ['GET', '/api/users'], ['GET', '/api/leaderboard'],
+  ['GET', '/api/achievements/missing', { error: 'User not found' }],
+];
+
 let realDbBefore;
 let server;
 
@@ -57,25 +69,27 @@ test('public metadata endpoints expose their established contracts', async () =>
 });
 
 test('every established API route remains mounted', async () => {
-  const routes = [
-    ['GET', '/api/health'], ['GET', '/api/db'], ['GET', '/api/weather'],
-    ['POST', '/api/heartbeat'], ['POST', '/api/toggle-warp'], ['POST', '/api/action'],
-    ['POST', '/api/profile/update'], ['POST', '/api/store/buy'], ['POST', '/api/store/equip'],
-    ['POST', '/api/daily-reward/claim'], ['POST', '/api/companion/buy'], ['POST', '/api/companion/equip'],
-    ['POST', '/api/prestige'], ['POST', '/api/prestige/upgrade'], ['POST', '/api/shake'],
-    ['GET', '/api/garden/missing'], ['POST', '/api/gift'], ['POST', '/api/minigame/reward'],
-    ['GET', '/api/users'], ['GET', '/api/leaderboard'], ['GET', '/api/achievements/missing'],
-  ];
-
-  for (const [method, pathname] of routes) {
+  for (const [method, pathname, expectedNotFound] of routeManifest) {
     const response = await server.request(pathname, {
       method,
       body: method === 'POST' ? {} : undefined,
     });
-    const isEstablishedMissingUser = response.status === 404
-      && response.body?.error === 'User not found';
-    assert.ok(response.status !== 404 || isEstablishedMissingUser, `${method} ${pathname}`);
+    if (expectedNotFound) {
+      assert.equal(response.status, 404, `${method} ${pathname}`);
+      assert.deepEqual(response.body, expectedNotFound, `${method} ${pathname}`);
+    } else {
+      assert.notEqual(response.status, 404, `${method} ${pathname}`);
+    }
   }
+});
+
+test('an unmatched API route retains the Express HTML 404 fallback outside the manifest', async () => {
+  const pathname = '/api/not-a-route';
+  const response = await fetch(`${server.baseUrl}${pathname}`);
+  assert.equal(response.status, 404);
+  assert.match(response.headers.get('content-type'), /^text\/html\b/);
+  assert.match(await response.text(), /Cannot GET \/api\/not-a-route/);
+  assert.equal(routeManifest.some(([method, path]) => method === 'GET' && path === pathname), false);
 });
 
 test('heartbeat validates usernames and returns the established user shape', async () => {
