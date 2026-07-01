@@ -92,6 +92,31 @@ test('an unmatched API route retains the Express HTML 404 fallback outside the m
   assert.equal(routeManifest.some(([method, path]) => method === 'GET' && path === pathname), false);
 });
 
+test('malformed JSON retains the Express parser 400 response', async () => {
+  const response = await fetch(`${server.baseUrl}/api/heartbeat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{',
+  });
+
+  assert.equal(response.status, 400);
+  assert.match(response.headers.get('content-type'), /^text\/html\b/);
+  assert.match(await response.text(), /^<!DOCTYPE html>/);
+});
+
+test('JSON exceeding the five-megabyte parser limit retains the Express 413 response', async () => {
+  const oversizedBody = JSON.stringify({ value: 'x'.repeat(5 * 1024 * 1024) });
+  const response = await fetch(`${server.baseUrl}/api/heartbeat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: oversizedBody,
+  });
+
+  assert.equal(response.status, 413);
+  assert.match(response.headers.get('content-type'), /^text\/html\b/);
+  assert.match(await response.text(), /^<!DOCTYPE html>/);
+});
+
 test('heartbeat validates usernames and returns the established user shape', async () => {
   assert.deepEqual(await post('/api/heartbeat'), {
     status: 400,

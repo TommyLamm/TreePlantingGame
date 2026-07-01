@@ -204,8 +204,61 @@ test('errorMiddleware delegates errors when response headers were already sent',
   assert.deepEqual(calls.bodies, []);
 });
 
+test('errorMiddleware delegates non-HttpError client errors without logging or responding', () => {
+  for (const error of [
+    Object.assign(new Error('malformed JSON'), { status: 400 }),
+    Object.assign(new Error('payload too large'), { statusCode: 413 }),
+  ]) {
+    const nextResult = { delegated: true };
+    const { response, calls } = createResponseSpy({ sent: true });
+    const forwarded = [];
+    const logged = [];
+    const originalConsoleError = console.error;
+    console.error = value => logged.push(value);
+
+    let actualResult;
+    try {
+      actualResult = errorMiddleware(error, {}, response, value => {
+        forwarded.push(value);
+        return nextResult;
+      });
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    assert.equal(actualResult, nextResult);
+    assert.deepEqual(forwarded, [error]);
+    assert.deepEqual(calls.statuses, []);
+    assert.deepEqual(calls.bodies, []);
+    assert.deepEqual(logged, []);
+  }
+});
+
 test('errorMiddleware logs unknown errors once and returns a generic 500 response', () => {
   const error = new Error('private detail');
+  const result = { sent: true };
+  const { response, calls } = createResponseSpy(result);
+  const logged = [];
+  let nextCalls = 0;
+  const originalConsoleError = console.error;
+  console.error = value => logged.push(value);
+
+  let actualResult;
+  try {
+    actualResult = errorMiddleware(error, {}, response, () => { nextCalls += 1; });
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  assert.equal(actualResult, result);
+  assert.deepEqual(calls.statuses, [500]);
+  assert.deepEqual(calls.bodies, [{ error: 'Server Error' }]);
+  assert.deepEqual(logged, [error]);
+  assert.equal(nextCalls, 0);
+});
+
+test('errorMiddleware does not delegate unexpected errors with a server status', () => {
+  const error = Object.assign(new Error('private detail'), { status: 500 });
   const result = { sent: true };
   const { response, calls } = createResponseSpy(result);
   const logged = [];
