@@ -3,14 +3,16 @@ const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { once } = require('node:events');
+const { EventEmitter, once } = require('node:events');
+const fsPromises = require('node:fs/promises');
 const { mkdtemp, readFile, rm, writeFile } = require('node:fs/promises');
 const { test } = require('node:test');
 
 const projectRoot = path.resolve(__dirname, '..');
 const serverFile = path.join(projectRoot, 'server.js');
 const WAIT_TIMEOUT_MS = 5000;
-const { createShutdown } = require('../server');
+const { attachServerLifecycle, createShutdown } = require('../server');
+const { createUserRepository } = require('../server/data/userRepository');
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -26,8 +28,8 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function createShutdownHarness({ dirty, flush }) {
-  const calls = { stop: 0, flush: 0, logs: [], errors: [], exits: [] };
+function createShutdownHarness({ dirty, flush, server, drainTimeoutMs = 100 }) {
+  const calls = { stop: 0, close: 0, flush: 0, logs: [], errors: [], exits: [] };
   const repository = {
     stopAutoSave() { calls.stop += 1; },
     isDirty() { return dirty(); },
@@ -36,12 +38,27 @@ function createShutdownHarness({ dirty, flush }) {
       return flush();
     },
   };
+  const shutdownServer = server || {
+    close(callback) {
+      calls.close += 1;
+      callback();
+    },
+  };
   const logger = {
     log(...args) { calls.logs.push(args); },
     error(...args) { calls.errors.push(args); },
   };
   const exit = (code) => { calls.exits.push(code); };
-  return { shutdown: createShutdown({ repository, logger, exit }), calls };
+  return {
+    shutdown: createShutdown({
+      repository,
+      server: shutdownServer,
+      logger,
+      exit,
+      drainTimeoutMs,
+    }),
+    calls,
+  };
 }
 
 async function createTempDatabase() {
@@ -73,23 +90,40 @@ function startChild(port, dbFile) {
     env: { ...process.env, PORT: String(port), DB_FILE: dbFile },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+  const close = new Promise((resolve) => {
+    child.once('close', (code, signal) => resolve({ code, signal }));
+  });
   let stdout = '';
   let stderr = '';
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
   child.stdout.on('data', (chunk) => { stdout += chunk; });
   child.stderr.on('data', (chunk) => { stderr += chunk; });
-  return { child, output: () => ({ stdout, stderr }) };
+  return { child, close, output: () => ({ stdout, stderr }) };
 }
 
-async function waitForExit(child, timeoutMs = WAIT_TIMEOUT_MS) {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return { code: child.exitCode, signal: child.signalCode };
+async function startHealthyChild(dbFile) {
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const port = await getFreePort();
+    const running = startChild(port, dbFile);
+    try {
+      const health = await waitForHealth(port, running.child);
+      return { health, port, running };
+    } catch (error) {
+      lastError = error;
+      await stopChild(running.child, running.close);
+      if (!/already in use/i.test(running.output().stderr)) throw error;
+    }
   }
+  throw lastError;
+}
+
+async function waitForClose(close, timeoutMs = WAIT_TIMEOUT_MS) {
   let timer;
   try {
     return await Promise.race([
-      once(child, 'exit').then(([code, signal]) => ({ code, signal })),
+      close,
       new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error('Timed out waiting for server exit')), timeoutMs);
       }),
@@ -99,16 +133,17 @@ async function waitForExit(child, timeoutMs = WAIT_TIMEOUT_MS) {
   }
 }
 
-async function stopChild(child) {
+async function stopChild(child, close) {
   if (child.exitCode === null && child.signalCode === null) {
     child.kill();
     try {
-      await waitForExit(child);
+      await waitForClose(close);
     } catch {
       child.kill('SIGKILL');
-      await waitForExit(child);
+      await waitForClose(close);
     }
   }
+  await waitForClose(close);
 }
 
 async function waitForHealth(port, child) {
@@ -118,12 +153,21 @@ async function waitForHealth(port, child) {
     if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error(`Server exited before health check: ${child.exitCode || child.signalCode}`);
     }
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      Math.min(1000, Math.max(1, deadline - Date.now())),
+    );
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/api/health`);
-      if (response.ok) return response.json();
+      const response = await fetch(`http://127.0.0.1:${port}/api/health`, {
+        signal: controller.signal,
+      });
+      if (response.ok) return await response.json();
       lastError = new Error(`Health returned ${response.status}`);
     } catch (error) {
       lastError = error;
+    } finally {
+      clearTimeout(timer);
     }
     await delay(50);
   }
@@ -132,14 +176,15 @@ async function waitForHealth(port, child) {
 
 test('normal startup becomes healthy and the child can be stopped cleanly', async () => {
   const { tempDir, dbFile } = await createTempDatabase();
-  const port = await getFreePort();
-  const running = startChild(port, dbFile);
+  let running;
   try {
-    const health = await waitForHealth(port, running.child);
+    const started = await startHealthyChild(dbFile);
+    running = started.running;
+    const { health } = started;
     assert.equal(health.status, 'ok');
     assert.equal(typeof health.uptime, 'number');
   } finally {
-    await stopChild(running.child);
+    if (running) await stopChild(running.child, running.close);
     await rm(tempDir, { recursive: true, force: true });
   }
 });
@@ -150,10 +195,11 @@ test('graceful shutdown persists Admin and Alice before exiting', {
     : false,
 }, async () => {
   const { tempDir, dbFile } = await createTempDatabase();
-  const port = await getFreePort();
-  const running = startChild(port, dbFile);
+  let running;
   try {
-    await waitForHealth(port, running.child);
+    const started = await startHealthyChild(dbFile);
+    running = started.running;
+    const { port } = started;
     const response = await fetch(`http://127.0.0.1:${port}/api/heartbeat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -162,14 +208,14 @@ test('graceful shutdown persists Admin and Alice before exiting', {
     assert.equal(response.status, 200);
 
     assert.equal(running.child.kill('SIGTERM'), true);
-    assert.deepEqual(await waitForExit(running.child), { code: 0, signal: null });
+    assert.deepEqual(await waitForClose(running.close), { code: 0, signal: null });
 
     const persisted = JSON.parse(await readFile(dbFile, 'utf8'));
     assert.equal(persisted.Admin.level, 100);
     assert.equal(persisted.Alice.level, 1);
     assert.equal(typeof persisted.Alice.lastTick, 'number');
   } finally {
-    await stopChild(running.child);
+    if (running) await stopChild(running.child, running.close);
     await rm(tempDir, { recursive: true, force: true });
   }
 });
@@ -183,13 +229,13 @@ test('EADDRINUSE exits promptly with the established guidance and no orphan proc
   const { port } = blocker.address();
   const running = startChild(port, dbFile);
   try {
-    assert.deepEqual(await waitForExit(running.child), { code: 1, signal: null });
+    assert.deepEqual(await waitForClose(running.close), { code: 1, signal: null });
     const { stderr } = running.output();
     assert.match(stderr, new RegExp(`Port ${port} is already in use\\.`));
     assert.match(stderr, /Another game server is probably still running\./);
     assert.match(stderr, /Stop the existing process or start this one with a different port/);
   } finally {
-    await stopChild(running.child);
+    await stopChild(running.child, running.close);
     await new Promise((resolve, reject) => {
       blocker.close((error) => error ? reject(error) : resolve());
     });
@@ -209,46 +255,221 @@ test('importing server exposes createShutdown without starting the bootstrap', a
     env: { ...process.env, PORT: String(port), DB_FILE: dbFile },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+  const close = new Promise((resolve) => {
+    child.once('close', (code, signal) => resolve({ code, signal }));
+  });
   let stdout = '';
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk) => { stdout += chunk; });
   try {
-    assert.deepEqual(await waitForExit(child), { code: 0, signal: null });
+    assert.deepEqual(await waitForClose(close), { code: 0, signal: null });
     assert.equal(stdout, 'function');
   } finally {
-    await stopChild(child);
+    await stopChild(child, close);
     await rm(tempDir, { recursive: true, force: true });
   }
 });
 
 test('concurrent shutdown calls share one path and retain the first signal', async () => {
-  const gate = deferred();
+  const closeGate = deferred();
   let dirty = true;
   const { shutdown, calls } = createShutdownHarness({
     dirty: () => dirty,
-    flush: async () => {
-      await gate.promise;
-      dirty = false;
+    flush: async () => { dirty = false; },
+    server: {
+      close(callback) {
+        calls.close += 1;
+        void closeGate.promise.then(callback);
+      },
     },
   });
 
-  const first = shutdown('SIGINT');
-  const second = shutdown('SIGTERM');
+  const first = shutdown('SERVER_ERROR', 1);
+  const second = shutdown('SIGTERM', 0);
   assert.strictEqual(second, first);
   assert.equal(calls.stop, 1);
-  assert.equal(calls.flush, 1);
+  assert.equal(calls.close, 1);
+  assert.equal(calls.flush, 0);
   assert.deepEqual(calls.exits, []);
-  assert.deepEqual(calls.logs, [['\n[Shutdown] Received SIGINT. Saving data to disk...']]);
+  assert.deepEqual(calls.logs, [['\n[Shutdown] Received SERVER_ERROR. Saving data to disk...']]);
 
-  gate.resolve();
+  closeGate.resolve();
   await Promise.all([first, second]);
   assert.equal(calls.stop, 1);
   assert.equal(calls.flush, 1);
   assert.deepEqual(calls.logs, [
-    ['\n[Shutdown] Received SIGINT. Saving data to disk...'],
+    ['\n[Shutdown] Received SERVER_ERROR. Saving data to disk...'],
     ['[Shutdown] Data saved successfully.'],
   ]);
+  assert.deepEqual(calls.exits, [1]);
+});
+
+test('shutdown closes the server before flushing and persists mutations completed during drain', async () => {
+  let dirty = false;
+  let closeCallback;
+  const order = [];
+  const { shutdown, calls } = createShutdownHarness({
+    dirty: () => dirty,
+    flush: async () => {
+      order.push('flush');
+      dirty = false;
+    },
+    server: {
+      close(callback) {
+        calls.close += 1;
+        order.push('close');
+        closeCallback = callback;
+      },
+    },
+  });
+
+  const completion = shutdown('SIGTERM');
+  assert.deepEqual(order, ['close']);
+  assert.equal(calls.flush, 0);
+
+  dirty = true;
+  closeCallback();
+  await completion;
+
+  assert.deepEqual(order, ['close', 'flush']);
+  assert.deepEqual(calls.logs.at(-1), ['[Shutdown] Data saved successfully.']);
   assert.deepEqual(calls.exits, [0]);
+});
+
+test('shutdown deadline forces lingering connections and proceeds to flush', async () => {
+  let dirty = true;
+  const forced = [];
+  const { shutdown, calls } = createShutdownHarness({
+    dirty: () => dirty,
+    flush: async () => { dirty = false; },
+    drainTimeoutMs: 10,
+    server: {
+      close() { calls.close += 1; },
+      closeIdleConnections() { forced.push('idle'); },
+      closeAllConnections() { forced.push('all'); },
+    },
+  });
+
+  await shutdown('SIGTERM');
+
+  assert.deepEqual(forced, ['idle', 'all']);
+  assert.equal(calls.flush, 1);
+  assert.deepEqual(calls.exits, [0]);
+});
+
+test('server close errors still flush and force a nonzero exit', async () => {
+  const closeFailure = Object.assign(new Error('close failed'), { code: 'EIO' });
+  let dirty = true;
+  const { shutdown, calls } = createShutdownHarness({
+    dirty: () => dirty,
+    flush: async () => { dirty = false; },
+    server: {
+      close(callback) {
+        calls.close += 1;
+        callback(closeFailure);
+      },
+    },
+  });
+
+  await shutdown('SIGTERM');
+
+  assert.equal(calls.flush, 1);
+  assert.deepEqual(calls.errors, [['[Shutdown Error] Failed to close server:', closeFailure]]);
+  assert.deepEqual(calls.exits, [1]);
+});
+
+test('ERR_SERVER_NOT_RUNNING is treated as an already closed server', async () => {
+  const closeFailure = Object.assign(new Error('not running'), { code: 'ERR_SERVER_NOT_RUNNING' });
+  let closeCalls = 0;
+  const { shutdown, calls } = createShutdownHarness({
+    dirty: () => false,
+    flush: async () => {},
+    server: {
+      close(callback) {
+        closeCalls += 1;
+        callback(closeFailure);
+      },
+    },
+  });
+
+  await shutdown('SIGTERM');
+
+  assert.equal(closeCalls, 1);
+  assert.deepEqual(calls.errors, []);
+  assert.deepEqual(calls.exits, [0]);
+});
+
+test('real repository composition closes before writing Admin and Alice on every platform', async () => {
+  const { tempDir, dbFile } = await createTempDatabase();
+  const order = [];
+  const repository = createUserRepository({
+    dbFile,
+    logger: { log() {}, error() {} },
+    fsAsync: {
+      ...fsPromises,
+      open(...args) {
+        order.push('write');
+        return fsPromises.open(...args);
+      },
+    },
+  });
+  const exits = [];
+  try {
+    repository.initialize();
+    repository.ensureUser('Alice');
+    const shutdown = createShutdown({
+      repository,
+      server: {
+        close(callback) {
+          order.push('close');
+          callback();
+        },
+      },
+      logger: { log() {}, error() {} },
+      exit: (code) => exits.push(code),
+    });
+
+    await shutdown('SIGTERM');
+
+    const persisted = JSON.parse(await readFile(dbFile, 'utf8'));
+    assert.equal(persisted.Admin.level, 100);
+    assert.equal(persisted.Alice.level, 1);
+    assert.deepEqual(order.slice(0, 2), ['close', 'write']);
+    assert.deepEqual(exits, [0]);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('a fatal server error after listening uses the shared graceful shutdown path', async () => {
+  const server = new EventEmitter();
+  const calls = { starts: 0, stops: 0, shutdowns: [], errors: [], exits: [] };
+  const repository = {
+    startAutoSave() { calls.starts += 1; },
+    stopAutoSave() { calls.stops += 1; },
+  };
+  attachServerLifecycle({
+    server,
+    repository,
+    shutdown: async (...args) => { calls.shutdowns.push(args); },
+    port: 7777,
+    logger: {
+      log() {},
+      error(...args) { calls.errors.push(args); },
+    },
+    exit: (code) => calls.exits.push(code),
+  });
+  const failure = Object.assign(new Error('accept failed'), { code: 'EIO' });
+
+  server.emit('listening');
+  server.emit('error', failure);
+  await Promise.resolve();
+
+  assert.equal(calls.starts, 1);
+  assert.equal(calls.stops, 0);
+  assert.deepEqual(calls.errors, [['[Server Error]', failure]]);
+  assert.deepEqual(calls.shutdowns, [['SERVER_ERROR', 1]]);
+  assert.deepEqual(calls.exits, []);
 });
 
 test('clean shutdown joins a deferred flush before logging or exiting', async () => {
@@ -259,6 +480,7 @@ test('clean shutdown joins a deferred flush before logging or exiting', async ()
   });
 
   const completion = shutdown('SIGTERM');
+  await Promise.resolve();
   assert.equal(calls.flush, 1);
   assert.deepEqual(calls.exits, []);
   assert.deepEqual(calls.logs, [['\n[Shutdown] Received SIGTERM. Saving data to disk...']]);

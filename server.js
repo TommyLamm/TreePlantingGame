@@ -1,4 +1,5 @@
 const path = require('path');
+const http = require('node:http');
 const { ACHIEVEMENTS } = require('./server/config/gameData');
 const { createUserRepository } = require('./server/data/userRepository');
 const { createAchievementService } = require('./server/services/achievementService');
@@ -7,40 +8,10 @@ const { createProgressionService } = require('./server/services/progressionServi
 const { createRewardService } = require('./server/services/rewardService');
 const { createSocialService } = require('./server/services/socialService');
 const { createApp } = require('./server/app');
+const { attachServerLifecycle, createShutdown } = require('./server/lifecycle');
 
 const PORT = process.env.PORT || 7777;
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'save.json');
-
-function createShutdown({ repository, exit = process.exit, logger = console }) {
-    let shutdownPromise;
-
-    return function shutdown(signal) {
-        if (!shutdownPromise) {
-            shutdownPromise = (async () => {
-                logger.log(`\n[Shutdown] Received ${signal}. Saving data to disk...`);
-                repository.stopAutoSave();
-                const hadPending = repository.isDirty();
-
-                try {
-                    await repository.flush();
-                    if (repository.isDirty()) {
-                        throw new Error('Data remains unsaved after flush.');
-                    }
-                } catch (error) {
-                    logger.error('[Shutdown Error] Failed to save data:', error);
-                    exit(1);
-                    return;
-                }
-
-                logger.log(hadPending
-                    ? '[Shutdown] Data saved successfully.'
-                    : '[Shutdown] No pending changes. Data is safe.');
-                exit(0);
-            })();
-        }
-        return shutdownPromise;
-    };
-}
 
 function main() {
     const repository = createUserRepository({ dbFile: DB_FILE });
@@ -60,29 +31,14 @@ function main() {
         clientDistPath: path.join(__dirname, 'client/dist'),
     });
 
-    const shutdown = createShutdown({ repository });
+    const server = http.createServer(app);
+    const shutdown = createShutdown({ repository, server });
     process.on('SIGINT', () => void shutdown('SIGINT'));
     process.on('SIGTERM', () => void shutdown('SIGTERM'));
-
-    const server = app.listen(PORT, () => {
-        repository.startAutoSave();
-        console.log(`\n🌱 Zen Arboretum Server running on http://localhost:${PORT}`);
-    });
-
-    server.on('error', (error) => {
-        repository.stopAutoSave();
-        if (error.code === 'EADDRINUSE') {
-            console.error(`\n[Server] Port ${PORT} is already in use.`);
-            console.error('[Server] Another game server is probably still running.');
-            console.error(`[Server] Stop the existing process or start this one with a different port, for example: $env:PORT=7778; node server.js\n`);
-            process.exit(1);
-            return;
-        }
-        console.error('[Server Error]', error);
-        process.exit(1);
-    });
+    attachServerLifecycle({ server, repository, shutdown, port: PORT });
+    server.listen(PORT);
 }
 
 if (require.main === module) main();
 
-module.exports = { createShutdown };
+module.exports = { attachServerLifecycle, createShutdown };

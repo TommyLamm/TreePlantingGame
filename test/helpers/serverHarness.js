@@ -32,7 +32,7 @@ function capture(stream, append) {
   stream.on('data', append);
 }
 
-async function startServer(initialData = {}) {
+async function startServer(initialData = {}, portAttempt = 0) {
   const projectRoot = path.resolve(__dirname, '..', '..');
   const port = await getFreePort();
   const tempDir = await mkdtemp(path.join(os.tmpdir(), 'tree-planting-game-'));
@@ -53,6 +53,9 @@ async function startServer(initialData = {}) {
       DB_FILE: dbFile,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const closePromise = new Promise((resolve) => {
+    child.once('close', (...args) => resolve(args));
   });
 
   let output = '';
@@ -84,10 +87,9 @@ async function startServer(initialData = {}) {
     if (!stopPromise) {
       stopPromise = (async () => {
         if (child.pid && child.exitCode === null && child.signalCode === null) {
-          const exit = once(child, 'exit');
           child.kill();
-          await exit;
         }
+        await closePromise;
         await rm(tempDir, { recursive: true, force: true });
       })();
     }
@@ -95,32 +97,32 @@ async function startServer(initialData = {}) {
   }
 
   const deadline = Date.now() + STARTUP_TIMEOUT_MS;
-  const startupAbort = new AbortController();
-  const abortTimer = setTimeout(() => startupAbort.abort(), STARTUP_TIMEOUT_MS);
   let lastError;
 
-  try {
-    while (Date.now() < deadline) {
-      if (spawnError || child.exitCode !== null || child.signalCode !== null) break;
+  while (Date.now() < deadline) {
+    if (spawnError || child.exitCode !== null || child.signalCode !== null) break;
 
+    const controller = new AbortController();
+    const abortTimer = setTimeout(
+      () => controller.abort(),
+      Math.min(1000, Math.max(1, deadline - Date.now())),
+    );
+    try {
       try {
-        const response = await fetch(`${baseUrl}/api/health`, {
-          signal: startupAbort.signal,
-        });
+        const response = await fetch(`${baseUrl}/api/health`, { signal: controller.signal });
         await response.arrayBuffer();
         if (response.ok) {
           return { baseUrl, dbFile, request, stop };
         }
         lastError = new Error(`Health check returned HTTP ${response.status}`);
       } catch (error) {
-        if (startupAbort.signal.aborted) break;
         lastError = error;
       }
-
-      await delay(Math.min(50, Math.max(0, deadline - Date.now())));
+    } finally {
+      clearTimeout(abortTimer);
     }
-  } finally {
-    clearTimeout(abortTimer);
+
+    await delay(Math.min(50, Math.max(0, deadline - Date.now())));
   }
 
   const details = [
@@ -132,6 +134,9 @@ async function startServer(initialData = {}) {
   ].filter(Boolean).join('\n');
 
   await stop();
+  if (/already in use/i.test(output) && portAttempt < 2) {
+    return startServer(initialData, portAttempt + 1);
+  }
   throw new Error(`Server failed to become healthy within five seconds.\n${details}`);
 }
 
