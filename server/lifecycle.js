@@ -1,4 +1,4 @@
-function drainServer({ server, drainTimeoutMs, setTimer, clearTimer }) {
+function drainServer({ server, drainTimeoutMs, forceTimeoutMs, setTimer, clearTimer }) {
     return new Promise((resolve) => {
         let settled = false;
         let timer;
@@ -11,14 +11,21 @@ function drainServer({ server, drainTimeoutMs, setTimer, clearTimer }) {
         };
 
         timer = setTimer(() => {
+            timer = setTimer(() => {
+                finish(new Error('Timed out waiting for server to close after forcing connections.'));
+            }, forceTimeoutMs);
             let forceError;
             try {
                 server.closeIdleConnections?.();
-                server.closeAllConnections?.();
             } catch (error) {
                 forceError = error;
             }
-            finish(forceError);
+            try {
+                server.closeAllConnections?.();
+            } catch (error) {
+                forceError ||= error;
+            }
+            if (forceError) finish(forceError);
         }, drainTimeoutMs);
 
         try {
@@ -35,26 +42,30 @@ function createShutdown({
     exit = process.exit,
     logger = console,
     drainTimeoutMs = 10_000,
+    forceTimeoutMs = 2_000,
     setTimer = setTimeout,
     clearTimer = clearTimeout,
 }) {
     let shutdownPromise;
+    let requestedExitCode = 0;
 
     return function shutdown(signal, desiredExitCode = 0) {
+        requestedExitCode = Math.max(requestedExitCode, desiredExitCode);
         if (!shutdownPromise) {
             logger.log(`\n[Shutdown] Received ${signal}. Saving data to disk...`);
             repository.stopAutoSave();
             shutdownPromise = (async () => {
-                let finalExitCode = desiredExitCode;
+                let internalFailure = false;
                 const closeError = await drainServer({
                     server,
                     drainTimeoutMs,
+                    forceTimeoutMs,
                     setTimer,
                     clearTimer,
                 });
                 if (closeError && closeError.code !== 'ERR_SERVER_NOT_RUNNING') {
                     logger.error('[Shutdown Error] Failed to close server:', closeError);
-                    finalExitCode = 1;
+                    internalFailure = true;
                 }
 
                 const hadPending = repository.isDirty();
@@ -67,7 +78,7 @@ function createShutdown({
                     saved = true;
                 } catch (error) {
                     logger.error('[Shutdown Error] Failed to save data:', error);
-                    finalExitCode = 1;
+                    internalFailure = true;
                 }
 
                 if (saved) {
@@ -75,7 +86,7 @@ function createShutdown({
                         ? '[Shutdown] Data saved successfully.'
                         : '[Shutdown] No pending changes. Data is safe.');
                 }
-                exit(finalExitCode);
+                exit(Math.max(requestedExitCode, internalFailure ? 1 : 0));
             })();
         }
         return shutdownPromise;
@@ -99,7 +110,7 @@ function attachServerLifecycle({
     });
 
     server.on('error', (error) => {
-        if (error.code === 'EADDRINUSE') {
+        if (!listeningSucceeded && error.code === 'EADDRINUSE') {
             repository.stopAutoSave();
             logger.error(`\n[Server] Port ${port} is already in use.`);
             logger.error('[Server] Another game server is probably still running.');

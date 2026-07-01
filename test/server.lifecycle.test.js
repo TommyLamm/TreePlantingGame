@@ -28,7 +28,13 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function createShutdownHarness({ dirty, flush, server, drainTimeoutMs = 100 }) {
+function createShutdownHarness({
+  dirty,
+  flush,
+  server,
+  drainTimeoutMs = 100,
+  forceTimeoutMs = 100,
+}) {
   const calls = { stop: 0, close: 0, flush: 0, logs: [], errors: [], exits: [] };
   const repository = {
     stopAutoSave() { calls.stop += 1; },
@@ -56,6 +62,7 @@ function createShutdownHarness({ dirty, flush, server, drainTimeoutMs = 100 }) {
       logger,
       exit,
       drainTimeoutMs,
+      forceTimeoutMs,
     }),
     calls,
   };
@@ -304,6 +311,32 @@ test('concurrent shutdown calls share one path and retain the first signal', asy
   assert.deepEqual(calls.exits, [1]);
 });
 
+test('a later shutdown request raises the shared path exit severity', async () => {
+  const closeGate = deferred();
+  let dirty = true;
+  const { shutdown, calls } = createShutdownHarness({
+    dirty: () => dirty,
+    flush: async () => { dirty = false; },
+    server: {
+      close(callback) {
+        calls.close += 1;
+        void closeGate.promise.then(callback);
+      },
+    },
+  });
+
+  const first = shutdown('SIGTERM', 0);
+  const second = shutdown('SERVER_ERROR', 1);
+  assert.strictEqual(second, first);
+  closeGate.resolve();
+  await first;
+
+  assert.equal(calls.close, 1);
+  assert.equal(calls.flush, 1);
+  assert.deepEqual(calls.logs[0], ['\n[Shutdown] Received SIGTERM. Saving data to disk...']);
+  assert.deepEqual(calls.exits, [1]);
+});
+
 test('shutdown closes the server before flushing and persists mutations completed during drain', async () => {
   let dirty = false;
   let closeCallback;
@@ -336,13 +369,46 @@ test('shutdown closes the server before flushing and persists mutations complete
   assert.deepEqual(calls.exits, [0]);
 });
 
-test('shutdown deadline forces lingering connections and proceeds to flush', async () => {
+test('shutdown first deadline forces lingering connections but waits for close confirmation', async () => {
+  let dirty = true;
+  let closeCallback;
+  const forced = [];
+  const { shutdown, calls } = createShutdownHarness({
+    dirty: () => dirty,
+    flush: async () => { dirty = false; },
+    drainTimeoutMs: 10,
+    forceTimeoutMs: 100,
+    server: {
+      close(callback) {
+        calls.close += 1;
+        closeCallback = callback;
+      },
+      closeIdleConnections() { forced.push('idle'); },
+      closeAllConnections() { forced.push('all'); },
+    },
+  });
+
+  const completion = shutdown('SIGTERM');
+  await delay(25);
+
+  assert.deepEqual(forced, ['idle', 'all']);
+  assert.equal(calls.flush, 0);
+  assert.deepEqual(calls.exits, []);
+
+  closeCallback();
+  await completion;
+  assert.equal(calls.flush, 1);
+  assert.deepEqual(calls.exits, [0]);
+});
+
+test('shutdown hard deadline logs a close timeout, flushes, and exits nonzero', async () => {
   let dirty = true;
   const forced = [];
   const { shutdown, calls } = createShutdownHarness({
     dirty: () => dirty,
     flush: async () => { dirty = false; },
     drainTimeoutMs: 10,
+    forceTimeoutMs: 10,
     server: {
       close() { calls.close += 1; },
       closeIdleConnections() { forced.push('idle'); },
@@ -354,7 +420,36 @@ test('shutdown deadline forces lingering connections and proceeds to flush', asy
 
   assert.deepEqual(forced, ['idle', 'all']);
   assert.equal(calls.flush, 1);
-  assert.deepEqual(calls.exits, [0]);
+  assert.equal(calls.errors[0][0], '[Shutdown Error] Failed to close server:');
+  assert.match(calls.errors[0][1].message, /timed out waiting for server to close/i);
+  assert.deepEqual(calls.exits, [1]);
+});
+
+test('connection force errors still attempt every force method and flush before exit one', async () => {
+  const forceFailure = new Error('force failed');
+  let dirty = true;
+  const forced = [];
+  const { shutdown, calls } = createShutdownHarness({
+    dirty: () => dirty,
+    flush: async () => { dirty = false; },
+    drainTimeoutMs: 10,
+    forceTimeoutMs: 100,
+    server: {
+      close() { calls.close += 1; },
+      closeIdleConnections() {
+        forced.push('idle');
+        throw forceFailure;
+      },
+      closeAllConnections() { forced.push('all'); },
+    },
+  });
+
+  await shutdown('SIGTERM');
+
+  assert.deepEqual(forced, ['idle', 'all']);
+  assert.equal(calls.flush, 1);
+  assert.deepEqual(calls.errors, [['[Shutdown Error] Failed to close server:', forceFailure]]);
+  assert.deepEqual(calls.exits, [1]);
 });
 
 test('server close errors still flush and force a nonzero exit', async () => {
@@ -467,6 +562,31 @@ test('a fatal server error after listening uses the shared graceful shutdown pat
 
   assert.equal(calls.starts, 1);
   assert.equal(calls.stops, 0);
+  assert.deepEqual(calls.errors, [['[Server Error]', failure]]);
+  assert.deepEqual(calls.shutdowns, [['SERVER_ERROR', 1]]);
+  assert.deepEqual(calls.exits, []);
+});
+
+test('EADDRINUSE after listening uses graceful shutdown without startup guidance', async () => {
+  const server = new EventEmitter();
+  const calls = { shutdowns: [], errors: [], exits: [] };
+  attachServerLifecycle({
+    server,
+    repository: { startAutoSave() {}, stopAutoSave() {} },
+    shutdown: async (...args) => { calls.shutdowns.push(args); },
+    port: 7777,
+    logger: {
+      log() {},
+      error(...args) { calls.errors.push(args); },
+    },
+    exit: (code) => calls.exits.push(code),
+  });
+  const failure = Object.assign(new Error('runtime address failure'), { code: 'EADDRINUSE' });
+
+  server.emit('listening');
+  server.emit('error', failure);
+  await Promise.resolve();
+
   assert.deepEqual(calls.errors, [['[Server Error]', failure]]);
   assert.deepEqual(calls.shutdowns, [['SERVER_ERROR', 1]]);
   assert.deepEqual(calls.exits, []);
