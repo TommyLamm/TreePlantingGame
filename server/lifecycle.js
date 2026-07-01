@@ -2,6 +2,7 @@ function drainServer({ server, drainTimeoutMs, forceTimeoutMs, setTimer, clearTi
     return new Promise((resolve) => {
         let settled = false;
         let timer;
+        let forceError;
 
         const finish = (error) => {
             if (settled) return;
@@ -12,9 +13,9 @@ function drainServer({ server, drainTimeoutMs, forceTimeoutMs, setTimer, clearTi
 
         timer = setTimer(() => {
             timer = setTimer(() => {
-                finish(new Error('Timed out waiting for server to close after forcing connections.'));
+                finish(forceError
+                    || new Error('Timed out waiting for server to close after forcing connections.'));
             }, forceTimeoutMs);
-            let forceError;
             try {
                 server.closeIdleConnections?.();
             } catch (error) {
@@ -25,11 +26,10 @@ function drainServer({ server, drainTimeoutMs, forceTimeoutMs, setTimer, clearTi
             } catch (error) {
                 forceError ||= error;
             }
-            if (forceError) finish(forceError);
         }, drainTimeoutMs);
 
         try {
-            server.close(finish);
+            server.close((error) => finish(error || forceError));
         } catch (error) {
             finish(error);
         }

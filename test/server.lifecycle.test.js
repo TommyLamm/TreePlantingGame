@@ -416,9 +416,16 @@ test('shutdown hard deadline logs a close timeout, flushes, and exits nonzero', 
     },
   });
 
-  await shutdown('SIGTERM');
+  const completion = shutdown('SIGTERM');
+  await delay(15);
 
   assert.deepEqual(forced, ['idle', 'all']);
+  assert.equal(calls.flush, 0);
+  assert.deepEqual(calls.errors, []);
+  assert.deepEqual(calls.exits, []);
+
+  await completion;
+
   assert.equal(calls.flush, 1);
   assert.equal(calls.errors[0][0], '[Shutdown Error] Failed to close server:');
   assert.match(calls.errors[0][1].message, /timed out waiting for server to close/i);
@@ -428,12 +435,50 @@ test('shutdown hard deadline logs a close timeout, flushes, and exits nonzero', 
 test('connection force errors still attempt every force method and flush before exit one', async () => {
   const forceFailure = new Error('force failed');
   let dirty = true;
+  let closeCallback;
   const forced = [];
   const { shutdown, calls } = createShutdownHarness({
     dirty: () => dirty,
     flush: async () => { dirty = false; },
     drainTimeoutMs: 10,
     forceTimeoutMs: 100,
+    server: {
+      close(callback) {
+        calls.close += 1;
+        closeCallback = callback;
+      },
+      closeIdleConnections() {
+        forced.push('idle');
+        throw forceFailure;
+      },
+      closeAllConnections() { forced.push('all'); },
+    },
+  });
+
+  const completion = shutdown('SIGTERM');
+  await delay(25);
+
+  assert.deepEqual(forced, ['idle', 'all']);
+  assert.equal(calls.flush, 0);
+  assert.deepEqual(calls.errors, []);
+  assert.deepEqual(calls.exits, []);
+
+  closeCallback();
+  await completion;
+  assert.equal(calls.flush, 1);
+  assert.deepEqual(calls.errors, [['[Shutdown Error] Failed to close server:', forceFailure]]);
+  assert.deepEqual(calls.exits, [1]);
+});
+
+test('force errors survive the hard deadline before flushing and exiting one', async () => {
+  const forceFailure = new Error('force failed without close');
+  let dirty = true;
+  const forced = [];
+  const { shutdown, calls } = createShutdownHarness({
+    dirty: () => dirty,
+    flush: async () => { dirty = false; },
+    drainTimeoutMs: 10,
+    forceTimeoutMs: 10,
     server: {
       close() { calls.close += 1; },
       closeIdleConnections() {
@@ -444,9 +489,15 @@ test('connection force errors still attempt every force method and flush before 
     },
   });
 
-  await shutdown('SIGTERM');
+  const completion = shutdown('SIGTERM');
+  await delay(15);
 
   assert.deepEqual(forced, ['idle', 'all']);
+  assert.equal(calls.flush, 0);
+  assert.deepEqual(calls.errors, []);
+  assert.deepEqual(calls.exits, []);
+
+  await completion;
   assert.equal(calls.flush, 1);
   assert.deepEqual(calls.errors, [['[Shutdown Error] Failed to close server:', forceFailure]]);
   assert.deepEqual(calls.exits, [1]);
