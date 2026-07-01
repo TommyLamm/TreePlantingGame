@@ -1,13 +1,6 @@
 import React, { useEffect } from 'react';
+import { PRESTIGE_UPGRADES } from '../constants';
 import { audio } from '../utils/audio';
-
-const UPGRADES = [
-    { id: 'xpBoost', maxLevel: 5, costPerLevel: 1, icon: '⚡', nameKey: 'prestigeXpBoost', descKey: 'prestigeXpBoostDesc' },
-    { id: 'coinBoost', maxLevel: 5, costPerLevel: 1, icon: '💰', nameKey: 'prestigeCoinBoost', descKey: 'prestigeCoinBoostDesc' },
-    { id: 'eventFreq', maxLevel: 3, costPerLevel: 2, icon: '⏰', nameKey: 'prestigeEventFreq', descKey: 'prestigeEventFreqDesc' },
-    { id: 'startLevel', maxLevel: 5, costPerLevel: 3, icon: '🚀', nameKey: 'prestigeStartLevel', descKey: 'prestigeStartLevelDesc' },
-    { id: 'comboBonus', maxLevel: 3, costPerLevel: 2, icon: '🔥', nameKey: 'prestigeComboBonus', descKey: 'prestigeComboBonusDesc' },
-];
 
 export function PrestigeModal({ currentLevel, generation, prestigePoints, prestigeUpgrades = {}, onPrestige, onUpgrade, onClose, t }) {
     useEffect(() => {
@@ -89,7 +82,7 @@ export function PrestigeModal({ currentLevel, generation, prestigePoints, presti
                             ⬆️ {t('prestigeUpgrades')}
                         </h3>
                         <div className="flex flex-col gap-2">
-                            {UPGRADES.map(upg => {
+                            {PRESTIGE_UPGRADES.map(upg => {
                                 const currentLvl = prestigeUpgrades[upg.id] || 0;
                                 const isMaxed = currentLvl >= upg.maxLevel;
                                 const canAfford = prestigePoints >= upg.costPerLevel;

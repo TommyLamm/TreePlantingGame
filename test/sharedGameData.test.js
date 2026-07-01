@@ -41,6 +41,19 @@ test('shared game data preserves the canonical static definitions', () => {
     ]);
 });
 
+test('prestige modal renders the shared prestige upgrade definitions', () => {
+    const modalPath = path.join(__dirname, '..', 'client', 'src', 'components', 'PrestigeModal.jsx');
+    const source = fs.readFileSync(modalPath, 'utf8');
+    const prestigeIds = require('../shared/game-data.json').prestigeUpgrades.map(({ id }) => id);
+
+    assert.match(source, /import\s*{\s*PRESTIGE_UPGRADES\s*}\s*from\s*['"]\.\.\/constants['"]/);
+    assert.match(source, /PRESTIGE_UPGRADES\.map\s*\(/);
+    assert.doesNotMatch(source, /const\s+UPGRADES\b/);
+    for (const id of prestigeIds) {
+        assert.doesNotMatch(source, new RegExp(`['"]${id}['"]`));
+    }
+});
+
 test('server adapter wires shared rules and projects daily reward fields', () => {
     const shared = require('../shared/game-data.json');
     const serverData = require('../server/config/gameData');
