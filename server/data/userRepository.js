@@ -55,6 +55,10 @@ function migrateUser(user, now = Date.now(), onChange) {
         user.inventory = defaults.inventory;
         reportChange();
     }
+    if (user.inventory.unlockedSkins === null || user.inventory.unlockedSkins === undefined) {
+        user.inventory.unlockedSkins = ['default'];
+        reportChange();
+    }
     if (!user.profile) {
         user.profile = defaults.profile;
         reportChange();
@@ -101,6 +105,11 @@ function validateUserRecord(username, user) {
         if (value !== null && value !== undefined && !Array.isArray(value)) {
             throw new TypeError(`User ${userLabel} field ${field} must be an array`);
         }
+    }
+
+    const unlockedSkins = user.inventory?.unlockedSkins;
+    if (unlockedSkins !== null && unlockedSkins !== undefined && !Array.isArray(unlockedSkins)) {
+        throw new TypeError(`User ${userLabel} field inventory.unlockedSkins must be an array`);
     }
 }
 

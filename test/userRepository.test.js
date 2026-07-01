@@ -156,7 +156,10 @@ test('migrateUser fills only missing top-level defaults and repairs legacy conta
     unlockedCompanions: { legacy: true },
   };
   migrateUser(existingContainers, 1000);
-  assert.deepEqual(existingContainers.inventory, { unknownInventoryValue: true });
+  assert.deepEqual(existingContainers.inventory, {
+    unknownInventoryValue: true,
+    unlockedSkins: ['default'],
+  });
   assert.deepEqual(existingContainers.profile, { unknownProfileValue: true });
   assert.deepEqual(existingContainers.achievements, ['first_event']);
   assert.deepEqual(existingContainers.prestigeUpgrades, { xpBoost: 2 });
@@ -222,7 +225,10 @@ test('initialize loads, shallow-migrates, and preserves existing values', async 
   assert.equal(repository.size(), 2);
   assert.equal(repository.getUser('Alice').level, 12);
   assert.equal(repository.getUser('Alice').coins, 345);
-  assert.deepEqual(repository.getUser('Alice').inventory, { customSkinState: 'preserved' });
+  assert.deepEqual(repository.getUser('Alice').inventory, {
+    customSkinState: 'preserved',
+    unlockedSkins: ['default'],
+  });
   assert.deepEqual(repository.getUser('Alice').unknownField, { stays: true });
   assert.equal(repository.getUser('Alice').lastTick, 1000);
   assert.equal(repository.getUser('Admin').level, 100);
@@ -356,6 +362,63 @@ test('initialize rejects malformed mutable user containers without changing the 
     assert.equal(repository.isDirty(), false, name);
     assert.equal(await readFile(dbFile, 'utf8'), original, name);
   }
+});
+
+test('initialize rejects malformed inventory unlockedSkins before accepting the cache', async (t) => {
+  const directory = await createTempDirectory(t);
+
+  for (const [name, value] of [
+    ['object', { default: true }],
+    ['string', 'default'],
+    ['number', 1],
+    ['boolean', true],
+  ]) {
+    const dbFile = path.join(directory, `unlocked-skins-${name}.json`);
+    const original = JSON.stringify({
+      ValidBeforeIt: { level: 7 },
+      Alice: { inventory: { unlockedSkins: value } },
+    });
+    await writeFile(dbFile, original, 'utf8');
+    const repository = createUserRepository({ dbFile, logger: silentLogger });
+
+    assert.throws(
+      () => repository.initialize(),
+      (error) => error instanceof TypeError
+        && /Alice/.test(error.message)
+        && /inventory\.unlockedSkins/.test(error.message),
+      name,
+    );
+    assert.equal(repository.size(), 0, name);
+    assert.equal(repository.isDirty(), false, name);
+    await repository.flush();
+    assert.equal(await readFile(dbFile, 'utf8'), original, name);
+  }
+});
+
+test('initialize repairs missing and null unlockedSkins while preserving valid inventory data', async (t) => {
+  const directory = await createTempDirectory(t);
+  const dbFile = path.join(directory, 'legacy-unlocked-skins.json');
+  await writeFile(dbFile, JSON.stringify({
+    Missing: { inventory: { customState: 'missing-preserved' } },
+    Null: { inventory: { unlockedSkins: null, customState: 'null-preserved' } },
+    Current: { inventory: { unlockedSkins: ['default', 'neon'], customState: 'current-preserved' } },
+  }), 'utf8');
+  const repository = createUserRepository({ dbFile, logger: silentLogger, now: () => 1000 });
+
+  repository.initialize();
+
+  assert.deepEqual(repository.getUser('Missing').inventory, {
+    customState: 'missing-preserved',
+    unlockedSkins: ['default'],
+  });
+  assert.deepEqual(repository.getUser('Null').inventory, {
+    unlockedSkins: ['default'],
+    customState: 'null-preserved',
+  });
+  assert.deepEqual(repository.getUser('Current').inventory, {
+    unlockedSkins: ['default', 'neon'],
+    customState: 'current-preserved',
+  });
 });
 
 test('initialize still repairs missing and null legacy containers and preserves unknown fields', async (t) => {
