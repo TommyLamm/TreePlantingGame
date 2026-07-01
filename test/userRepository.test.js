@@ -245,6 +245,37 @@ test('initialize rejects corrupt JSON without overwriting the original file', as
   assert.equal(repository.isDirty(), false);
 });
 
+test('initialize rejects empty existing files without creating or persisting Admin', async (t) => {
+  const directory = await createTempDirectory(t);
+
+  for (const [name, original] of [
+    ['zero-byte', ''],
+    ['whitespace', ' \r\n\t '],
+  ]) {
+    const dbFile = path.join(directory, `${name}.json`);
+    const criticalErrors = [];
+    await writeFile(dbFile, original, 'utf8');
+    const repository = createUserRepository({
+      dbFile,
+      logger: {
+        log() {},
+        error(...args) { criticalErrors.push(args); },
+      },
+    });
+
+    assert.throws(() => repository.initialize(), SyntaxError, name);
+    assert.equal(repository.hasUser('Admin'), false, name);
+    assert.equal(repository.size(), 0, name);
+    assert.equal(repository.isDirty(), false, name);
+    assert.equal(criticalErrors.length, 1, name);
+    assert.match(criticalErrors[0][0], /CRITICAL ERROR/, name);
+
+    await repository.flush();
+    assert.equal(await readFile(dbFile, 'utf8'), original, name);
+    assert.equal(repository.isDirty(), false, name);
+  }
+});
+
 test('initialize rejects non-object JSON roots without changing the source file', async (t) => {
   const directory = await createTempDirectory(t);
 
@@ -268,6 +299,89 @@ test('initialize rejects non-object JSON roots without changing the source file'
     assert.equal(repository.size(), 0, name);
     assert.equal(repository.isDirty(), false, name);
   }
+});
+
+test('initialize rejects every non-object user record before accepting any cache entries', async (t) => {
+  const directory = await createTempDirectory(t);
+
+  for (const [name, value] of [
+    ['array', []],
+    ['null', null],
+    ['string', 'user'],
+    ['number', 42],
+    ['boolean', true],
+  ]) {
+    const dbFile = path.join(directory, `${name}-user.json`);
+    const original = JSON.stringify({ ValidBeforeIt: { level: 7 }, Alice: value });
+    await writeFile(dbFile, original, 'utf8');
+    const repository = createUserRepository({ dbFile, logger: silentLogger });
+
+    assert.throws(
+      () => repository.initialize(),
+      (error) => error instanceof TypeError && /Alice/.test(error.message),
+      name,
+    );
+    assert.equal(repository.size(), 0, name);
+    assert.equal(repository.isDirty(), false, name);
+    await repository.flush();
+    assert.equal(await readFile(dbFile, 'utf8'), original, name);
+  }
+});
+
+test('initialize rejects malformed mutable user containers without changing the source', async (t) => {
+  const directory = await createTempDirectory(t);
+  const malformedContainers = [
+    ['inventory-array', 'inventory', []],
+    ['inventory-string', 'inventory', 'items'],
+    ['profile-array', 'profile', []],
+    ['prestige-array', 'prestigeUpgrades', []],
+    ['achievements-object', 'achievements', { first: true }],
+    ['companions-object', 'unlockedCompanions', { fox: true }],
+  ];
+
+  for (const [name, field, value] of malformedContainers) {
+    const dbFile = path.join(directory, `${name}.json`);
+    const original = JSON.stringify({ Alice: { level: 7, [field]: value } });
+    await writeFile(dbFile, original, 'utf8');
+    const repository = createUserRepository({ dbFile, logger: silentLogger });
+
+    assert.throws(
+      () => repository.initialize(),
+      (error) => error instanceof TypeError
+        && /Alice/.test(error.message)
+        && new RegExp(field).test(error.message),
+      name,
+    );
+    assert.equal(repository.size(), 0, name);
+    assert.equal(repository.isDirty(), false, name);
+    assert.equal(await readFile(dbFile, 'utf8'), original, name);
+  }
+});
+
+test('initialize still repairs missing and null legacy containers and preserves unknown fields', async (t) => {
+  const directory = await createTempDirectory(t);
+  const dbFile = path.join(directory, 'legacy-null-containers.json');
+  await writeFile(dbFile, JSON.stringify({
+    Alice: {
+      inventory: null,
+      profile: null,
+      achievements: null,
+      prestigeUpgrades: null,
+      unlockedCompanions: null,
+      unknownField: { stays: true },
+    },
+  }), 'utf8');
+  const repository = createUserRepository({ dbFile, logger: silentLogger, now: () => 1000 });
+
+  repository.initialize();
+
+  const alice = repository.getUser('Alice');
+  assert.deepEqual(alice.inventory, createDefaultUser(false, 1000).inventory);
+  assert.deepEqual(alice.profile, createDefaultUser(false, 1000).profile);
+  assert.deepEqual(alice.achievements, []);
+  assert.deepEqual(alice.prestigeUpgrades, {});
+  assert.deepEqual(alice.unlockedCompanions, []);
+  assert.deepEqual(alice.unknownField, { stays: true });
 });
 
 test('ensureUser caches one object and collection accessors expose repository state', async (t) => {
@@ -599,6 +713,123 @@ test('auto-save persists a dirty generation before it is stopped', async (t) => 
   repository.stopAutoSave();
 
   assert.equal(JSON.parse(await readFile(dbFile, 'utf8')).Alice.coins, 321);
+});
+
+test('one auto-save activation writes only one snapshot when mutations continue during the write', async (t) => {
+  const directory = await createTempDirectory(t);
+  const dbFile = path.join(directory, 'save.json');
+  const firstRenameStarted = deferred();
+  const firstRenameFinished = deferred();
+  const releaseFirstRename = deferred();
+  let renameCalls = 0;
+  const fsAsync = {
+    ...fsPromises,
+    async rename(source, destination) {
+      renameCalls += 1;
+      if (renameCalls === 1) {
+        firstRenameStarted.resolve();
+        await releaseFirstRename.promise;
+      }
+      const result = await fsPromises.rename(source, destination);
+      if (renameCalls === 1) firstRenameFinished.resolve();
+      return result;
+    },
+  };
+  const repository = createUserRepository({ dbFile, fsAsync, logger: silentLogger, now: () => 1000 });
+  repository.initialize();
+  repository.flushSync();
+  const alice = repository.ensureUser('Alice');
+  alice.coins = 10;
+  repository.markDirty();
+
+  let timerCallback;
+  const originalSetInterval = global.setInterval;
+  const originalClearInterval = global.clearInterval;
+  global.setInterval = (callback) => {
+    timerCallback = callback;
+    return { fakeTimer: true };
+  };
+  global.clearInterval = () => {};
+  try {
+    repository.startAutoSave();
+    timerCallback();
+    await firstRenameStarted.promise;
+    alice.coins = 20;
+    repository.markDirty();
+    alice.coins = 30;
+    repository.markDirty();
+    releaseFirstRename.resolve();
+
+    await firstRenameFinished.promise;
+    await delay(20);
+    assert.equal(renameCalls, 1);
+    assert.equal(JSON.parse(await readFile(dbFile, 'utf8')).Alice.coins, 10);
+    assert.equal(repository.isDirty(), true);
+
+    timerCallback();
+    await waitFor(() => !repository.isDirty(), 'next periodic activation did not make progress');
+    assert.equal(renameCalls, 2);
+    assert.equal(JSON.parse(await readFile(dbFile, 'utf8')).Alice.coins, 30);
+  } finally {
+    releaseFirstRename.resolve();
+    repository.stopAutoSave();
+    global.setInterval = originalSetInterval;
+    global.clearInterval = originalClearInterval;
+  }
+});
+
+test('public flush upgrades an in-flight one-shot auto-save to drain the newest generation', async (t) => {
+  const directory = await createTempDirectory(t);
+  const dbFile = path.join(directory, 'save.json');
+  const firstRenameStarted = deferred();
+  const releaseFirstRename = deferred();
+  let renameCalls = 0;
+  const fsAsync = {
+    ...fsPromises,
+    async rename(source, destination) {
+      renameCalls += 1;
+      if (renameCalls === 1) {
+        firstRenameStarted.resolve();
+        await releaseFirstRename.promise;
+      }
+      return fsPromises.rename(source, destination);
+    },
+  };
+  const repository = createUserRepository({ dbFile, fsAsync, logger: silentLogger, now: () => 1000 });
+  repository.initialize();
+  repository.flushSync();
+  const alice = repository.ensureUser('Alice');
+  alice.coins = 10;
+  repository.markDirty();
+
+  let timerCallback;
+  const originalSetInterval = global.setInterval;
+  const originalClearInterval = global.clearInterval;
+  global.setInterval = (callback) => {
+    timerCallback = callback;
+    return { fakeTimer: true };
+  };
+  global.clearInterval = () => {};
+  try {
+    repository.startAutoSave();
+    timerCallback();
+    await firstRenameStarted.promise;
+    alice.coins = 20;
+    repository.markDirty();
+
+    const shutdownFlush = repository.flush();
+    releaseFirstRename.resolve();
+    await shutdownFlush;
+
+    assert.equal(renameCalls, 2);
+    assert.equal(JSON.parse(await readFile(dbFile, 'utf8')).Alice.coins, 20);
+    assert.equal(repository.isDirty(), false);
+  } finally {
+    releaseFirstRename.resolve();
+    repository.stopAutoSave();
+    global.setInterval = originalSetInterval;
+    global.clearInterval = originalClearInterval;
+  }
 });
 
 test('startAutoSave and stopAutoSave are idempotent and stopping clears the timer', async (t) => {

@@ -82,6 +82,28 @@ function createCache(entries = []) {
     return cache;
 }
 
+function validateUserRecord(username, user) {
+    const userLabel = JSON.stringify(username);
+    if (user === null || Array.isArray(user) || typeof user !== 'object') {
+        throw new TypeError(`User ${userLabel} must be a non-null, non-array object`);
+    }
+
+    for (const field of ['inventory', 'profile', 'prestigeUpgrades']) {
+        const value = user[field];
+        if (value !== null && value !== undefined
+            && (Array.isArray(value) || typeof value !== 'object')) {
+            throw new TypeError(`User ${userLabel} field ${field} must be a non-array object`);
+        }
+    }
+
+    for (const field of ['achievements', 'unlockedCompanions']) {
+        const value = user[field];
+        if (value !== null && value !== undefined && !Array.isArray(value)) {
+            throw new TypeError(`User ${userLabel} field ${field} must be an array`);
+        }
+    }
+}
+
 function createUserRepository({
     dbFile,
     saveIntervalMs = 5000,
@@ -94,6 +116,7 @@ function createUserRepository({
     let mutationGeneration = 0;
     let persistedGeneration = 0;
     let inFlightPromise = null;
+    let drainRequested = false;
     let saveTimer = null;
     let tempFileCounter = 0;
 
@@ -120,18 +143,24 @@ function createUserRepository({
             if (!fsSync.existsSync(dbFile)) {
                 logger.log('[Init] Creating new save.json...');
                 fsSync.writeFileSync(dbFile, '{}', 'utf8');
+                fsSync.accessSync(dbFile, fsSync.constants.R_OK | fsSync.constants.W_OK);
                 cache = createCache();
             } else {
                 logger.log('[Init] Found existing save.json. Loading into memory...');
                 const data = fsSync.readFileSync(dbFile, 'utf8');
-                const parsed = JSON.parse(data || '{}');
+                const parsed = JSON.parse(data);
                 if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
                     throw new TypeError('Database root must be a non-null, non-array object');
                 }
-                cache = createCache(Object.entries(parsed));
-                logger.log(`[Init] Loaded ${Object.keys(cache).length} user(s) into memory.`);
+                const entries = Object.entries(parsed);
+                for (const [username, user] of entries) {
+                    validateUserRecord(username, user);
+                }
+                const loadedCache = createCache(entries);
+                fsSync.accessSync(dbFile, fsSync.constants.R_OK | fsSync.constants.W_OK);
+                cache = loadedCache;
+                logger.log(`[Init] Loaded ${entries.length} user(s) into memory.`);
             }
-            fsSync.accessSync(dbFile, fsSync.constants.R_OK | fsSync.constants.W_OK);
             logger.log('[Init] Read/Write permissions confirmed.');
         } catch (err) {
             logger.error('[CRITICAL ERROR] Cannot access save.json:', err);
@@ -225,12 +254,11 @@ function createUserRepository({
         }
     }
 
-    function flush() {
-        if (inFlightPromise) return inFlightPromise;
-        if (!isDirty()) return Promise.resolve();
-
+    function startFlushCoordinator(shouldDrain) {
+        drainRequested = shouldDrain;
         inFlightPromise = (async () => {
-            while (isDirty()) {
+            do {
+                if (!isDirty()) return;
                 const snapshotGeneration = mutationGeneration;
                 const snapshot = JSON.stringify(cache, null, 2);
                 try {
@@ -240,12 +268,27 @@ function createUserRepository({
                     logger.error('[Background Sync Error] Failed to write save.json:', err);
                     return;
                 }
-            }
+            } while (drainRequested && isDirty());
         })().finally(() => {
             inFlightPromise = null;
+            drainRequested = false;
         });
 
         return inFlightPromise;
+    }
+
+    function flushOneSnapshot() {
+        if (inFlightPromise || !isDirty()) return;
+        void startFlushCoordinator(false);
+    }
+
+    function flush() {
+        if (inFlightPromise) {
+            drainRequested = true;
+            return inFlightPromise;
+        }
+        if (!isDirty()) return Promise.resolve();
+        return startFlushCoordinator(true);
     }
 
     function flushSync() {
@@ -265,7 +308,7 @@ function createUserRepository({
     function startAutoSave() {
         if (saveTimer !== null) return;
         saveTimer = setInterval(() => {
-            void flush();
+            flushOneSnapshot();
         }, saveIntervalMs);
     }
 
