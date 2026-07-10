@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useMemo, useCallback } from 'react';
+import { useState, useEffect, useReducer, useMemo, useCallback } from 'react';
 import { ACHIEVEMENT_DEFS } from './constants';
 import { gameReducer, initialGameState } from './state/gameReducer';
 import { useGameActions } from './hooks/useGameActions';
