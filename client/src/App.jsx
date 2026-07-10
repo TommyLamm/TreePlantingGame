@@ -2,6 +2,7 @@ import React, { useState, useEffect, useReducer, useMemo, useCallback, memo } fr
 import { MAX_LEVEL, ACHIEVEMENT_DEFS } from './constants';
 import { gameReducer, initialGameState } from './state/gameReducer';
 import { useGameModals } from './hooks/useGameModals';
+import { useGameSession } from './hooks/useGameSession';
 import { audio } from './utils/audio';
 import { api } from './utils/api';
 import { createTranslator } from './utils/i18n';
@@ -32,11 +33,6 @@ import { GardenVisitModal } from './components/GardenVisitModal';
 const MemoizedTree = memo(TreeVisual);
 
 export default function App() {
-    const [currentUser, setCurrentUser] = useState(() => localStorage.getItem('zenUser') || null);
-    const [serverStatus, setServerStatus] = useState('unknown');
-    const [existingUsers, setExistingUsers] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-
     const [game, dispatch] = useReducer(gameReducer, initialGameState);
 
     const [isMuted, setIsMuted] = useState(() => {
@@ -60,8 +56,6 @@ export default function App() {
         giftError,
         setGiftError,
     } = useGameModals();
-    const [firstLoad, setFirstLoad] = useState(true);
-
     // VISUAL EFFECTS STATE
     const [actionBursts, setActionBursts] = useState([]);
     const [achievementQueue, setAchievementQueue] = useState([]);
@@ -72,6 +66,42 @@ export default function App() {
 
     const t = useMemo(() => createTranslator(lang), [lang]);
 
+    const addLog = useCallback(message => {
+        setLogs(current => [message, ...current].slice(0, 2));
+    }, []);
+    const enqueueAchievements = useCallback(ids => {
+        const definitions = ids
+            .map(id => ACHIEVEMENT_DEFS.find(item => item.id === id))
+            .filter(Boolean);
+        setAchievementQueue(current => [...current, ...definitions]);
+    }, []);
+    const resetUi = useCallback(() => {
+        setLocalActiveEvent(null);
+        resetModals();
+    }, [resetModals]);
+    const onFirstOfflineEarnings = useCallback(() => {
+        openModal('offlineEarnings');
+    }, [openModal]);
+    const onFirstDailyReward = useCallback(() => {
+        openModal('dailyReward');
+    }, [openModal]);
+    const {
+        currentUser,
+        serverStatus,
+        existingUsers,
+        isLoading,
+        handleLogin,
+        handleLogout,
+    } = useGameSession({
+        dispatch,
+        t,
+        addLog,
+        enqueueAchievements,
+        onFirstOfflineEarnings,
+        onFirstDailyReward,
+        resetUi,
+    });
+
     // Sync audio state on mount
     useEffect(() => {
         audio.setMuted(isMuted);
@@ -81,96 +111,6 @@ export default function App() {
     useEffect(() => {
         setLocalActiveEvent(game.activeEvent);
     }, [game.activeEvent]);
-
-    // 1. Initial Fetch
-    useEffect(() => {
-        api.getUsers()
-            .then(users => setExistingUsers(users))
-            .catch(() => setServerStatus('offline'))
-            .finally(() => {
-                if (!currentUser) setIsLoading(false);
-            });
-    }, []);
-
-    // 2. Polling Loop with Page Visibility optimization
-    useEffect(() => {
-        if (!currentUser) return;
-        let isVisible = true;
-
-        const poll = async () => {
-            try {
-                const data = await api.heartbeat(currentUser);
-
-                dispatch({ type: 'SYNC_SERVER', data });
-                setServerStatus('connected');
-                setIsLoading(false);
-
-                if (data.justLeveledUp) {
-                    audio.playLevelUp();
-                    addLog(t('levelUp', data.level));
-                }
-
-                // Handle new achievements
-                if (data.newAchievements && data.newAchievements.length > 0) {
-                    const achDefs = data.newAchievements
-                        .map(id => ACHIEVEMENT_DEFS.find(a => a.id === id))
-                        .filter(Boolean);
-                    setAchievementQueue(prev => [...prev, ...achDefs]);
-                }
-
-                // Storm penalty
-                if (data.stormPenalty) {
-                    addLog(t('stormPenalty'));
-                }
-
-                // Golden hour triggered
-                if (data.goldenHourTriggered) {
-                    addLog(t('goldenHour'));
-                }
-
-                // First load — show offline earnings and/or daily reward
-                if (firstLoad) {
-                    setFirstLoad(false);
-                    // Show offline earnings if significant
-                    if ((data.lastOfflineXp || 0) > 0.5 || (data.lastOfflineCoins || 0) > 1) {
-                        openModal('offlineEarnings');
-                    } else if (data.dailyRewardAvailable) {
-                        // Show daily reward prompt
-                        openModal('dailyReward');
-                    }
-                }
-            } catch (e) {
-                setServerStatus('offline');
-                setIsLoading(false);
-            }
-        };
-
-        const handleVisibility = () => {
-            isVisible = !document.hidden;
-        };
-        document.addEventListener('visibilitychange', handleVisibility);
-
-        poll(); // initial immediate poll
-        const interval = setInterval(() => {
-            // Poll every 5s when visible, every 30s when hidden
-            if (isVisible) poll();
-        }, 5000);
-
-        // Background slow poll
-        const bgInterval = setInterval(() => {
-            if (!isVisible) poll();
-        }, 30000);
-
-        return () => {
-            clearInterval(interval);
-            clearInterval(bgInterval);
-            document.removeEventListener('visibilitychange', handleVisibility);
-        };
-    }, [currentUser, t]);
-
-    const addLog = useCallback((msg) => {
-        setLogs(prev => [msg, ...prev].slice(0, 2));
-    }, []);
 
     // Actions with OPTIMISTIC UI
     const handleAction = useCallback(async (actionType) => {
@@ -217,16 +157,13 @@ export default function App() {
 
             // Handle new achievements
             if (data.newAchievements && data.newAchievements.length > 0) {
-                const achDefs = data.newAchievements
-                    .map(id => ACHIEVEMENT_DEFS.find(a => a.id === id))
-                    .filter(Boolean);
-                setAchievementQueue(prev => [...prev, ...achDefs]);
+                enqueueAchievements(data.newAchievements);
             }
         } catch (e) {
             console.error(e);
             setLocalActiveEvent(game.activeEvent);
         }
-    }, [currentUser, game.activeEvent, t, addLog]);
+    }, [currentUser, game.activeEvent, t, addLog, enqueueAchievements]);
 
     const toggleDemoState = useCallback(async () => {
         try {
@@ -234,30 +171,6 @@ export default function App() {
             dispatch({ type: 'SET_DEMO', value: data.isDemoMode });
         } catch (e) { console.error(e); }
     }, [currentUser]);
-
-    const handleLogin = useCallback((name) => {
-        if (audio.ctx && audio.ctx.state === 'suspended') {
-            audio.ctx.resume();
-        }
-        setCurrentUser(name);
-        localStorage.setItem('zenUser', name);
-        setIsLoading(true);
-        setFirstLoad(true);
-        audio.playClick();
-    }, []);
-
-    const handleLogout = useCallback(() => {
-        audio.playClick();
-        setCurrentUser(null);
-        localStorage.removeItem('zenUser');
-        setExistingUsers([]);
-        dispatch({ type: 'RESET' });
-        setLocalActiveEvent(null);
-        resetModals();
-        setFirstLoad(true);
-
-        api.getUsers().then(users => setExistingUsers(users)).catch(() => {});
-    }, []);
 
     const toggleMute = useCallback(() => {
         const newState = !isMuted;
