@@ -6,28 +6,17 @@ import { useGameModals } from './hooks/useGameModals';
 import { useGameSession } from './hooks/useGameSession';
 import { audio } from './utils/audio';
 import { createTranslator } from './utils/i18n';
-import { CloudCheck, CloudOff, User, BookOpen, VolumeX, Volume2, Clock, Zap, Droplets, Bug, Shovel, Coins, ShoppingCart, Scissors, SunMedium, CloudLightning, Trophy, Calendar, Paw, Recycle, Gamepad, StatsIcon } from './components/Icons';
+import { Zap, Droplets, Bug, Shovel, Scissors, SunMedium, CloudLightning } from './components/Icons';
 import { TreeVisual } from './components/TreeVisual';
 import { ActionButton } from './components/ActionButton';
-import { CollectionModal } from './components/CollectionModal';
-import { StoreModal } from './components/StoreModal';
-import { ProfileModal } from './components/ProfileModal';
-import { LeaderboardModal } from './components/LeaderboardModal';
 import { LoginScreen } from './components/LoginScreen';
 import { LoadingScreen } from './components/LoadingScreen';
 import { AchievementToast } from './components/AchievementToast';
 import { Particles } from './components/Particles';
 import { EnvironmentBackdrop } from './components/EnvironmentBackdrop';
 import { CompanionSprite } from './components/CompanionSprite';
-// New components
-import { WeatherDisplay } from './components/WeatherDisplay';
-import { DailyRewardModal } from './components/DailyRewardModal';
-import { OfflineEarningsModal } from './components/OfflineEarningsModal';
-import { PrestigeModal } from './components/PrestigeModal';
-import { StatsModal } from './components/StatsModal';
-import { MiniGameModal } from './components/MiniGameModal';
-import { CompanionSelect } from './components/CompanionSelect';
-import { GardenVisitModal } from './components/GardenVisitModal';
+import { GameModals } from './components/game/GameModals';
+import { GameHeader } from './components/game/GameHeader';
 
 // --- Memoized Tree ---
 const MemoizedTree = memo(TreeVisual);
@@ -148,6 +137,16 @@ export default function App() {
         });
     }, []);
 
+    const handleOpenModal = useCallback(name => {
+        audio.playClick();
+        openModal(name);
+    }, [openModal]);
+
+    const handleModalClose = useCallback(name => {
+        if (name !== 'dailyReward') audio.playClick();
+        closeModal(name);
+    }, [closeModal]);
+
     const isClockDay = new Date().getHours() > 6 && new Date().getHours() < 18;
 
     const handleAchievementDone = useCallback(() => {
@@ -183,6 +182,48 @@ export default function App() {
     const today = new Date().toISOString().slice(0, 10);
     const gamesRemaining = game.minigameDate === today ? Math.max(0, 3 - (game.minigameCount || 0)) : 3;
 
+    const modalProps = {
+        visibility,
+        game,
+        currentUser,
+        t,
+        leaderboardData,
+        gardenVisitData,
+        giftError,
+        gamesRemaining,
+        onClose: handleModalClose,
+        onLogout: handleLogout,
+        onBuy: handleBuy,
+        onEquip: handleEquip,
+        onProfileSave: handleProfileSave,
+        onVisitGarden: handleVisitGarden,
+        onGift: handleSendGift,
+        onClaimDailyReward: handleClaimDailyReward,
+        onOfflineClose: handleOfflineClose,
+        onPrestige: handlePrestige,
+        onPrestigeUpgrade: handlePrestigeUpgrade,
+        onMinigameReward: handleMinigameReward,
+        onBuyCompanion: handleBuyCompanion,
+        onEquipCompanion: handleEquipCompanion,
+    };
+
+    const headerProps = {
+        game,
+        currentUser,
+        serverStatus,
+        isDay,
+        goldenHourActive,
+        companionAssetId,
+        isMuted,
+        t,
+        onCycleLang: cycleLang,
+        onOpenModal: handleOpenModal,
+        onToggleCollection: toggleCollection,
+        onOpenLeaderboard: handleOpenLeaderboard,
+        onToggleMute: toggleMute,
+        onToggleDemoState: toggleDemoState,
+    };
+
     // --- Render ---
     if (!currentUser) {
         if (isLoading) return <LoadingScreen t={t} />;
@@ -212,171 +253,8 @@ export default function App() {
             )}
 
             {/* --- MODALS --- */}
-            {visibility.collection && <CollectionModal currentLevel={game.level} achievements={game.achievements} onClose={toggleCollection} t={t} />}
-            {visibility.store && <StoreModal userCoins={game.coins} inventory={game.inventory} onBuy={handleBuy} onEquip={handleEquip} onClose={() => { audio.playClick(); closeModal('store'); }} t={t} />}
-            {visibility.profile && (
-                <ProfileModal
-                    username={currentUser}
-                    joinDate={game.joinDate}
-                    playTimeMs={game.playTimeMs}
-                    interactions={game.interactions}
-                    profileData={game.profileData}
-                    onSave={handleProfileSave}
-                    onClose={() => { audio.playClick(); closeModal('profile'); }}
-                    onLogout={handleLogout}
-                    t={t}
-                />
-            )}
-            {visibility.leaderboard && (
-                <LeaderboardModal
-                    data={leaderboardData}
-                    currentUser={currentUser}
-                    onVisitGarden={handleVisitGarden}
-                    onClose={() => { audio.playClick(); closeModal('leaderboard'); }}
-                    t={t}
-                />
-            )}
-            {visibility.dailyReward && (
-                <DailyRewardModal
-                    loginStreak={game.loginStreak}
-                    currentDayIndex={((game.loginStreak || 1) - 1) % 7}
-                    claimed={game.dailyRewardClaimed}
-                    onClaim={handleClaimDailyReward}
-                    onClose={() => closeModal('dailyReward')}
-                    t={t}
-                />
-            )}
-            {visibility.offlineEarnings && (
-                <OfflineEarningsModal
-                    xpEarned={game.lastOfflineXp}
-                    coinsEarned={game.lastOfflineCoins}
-                    timeAwayMs={game.lastOfflineXp > 0 ? (game.lastOfflineXp / 1 * 3600000) : 60000}
-                    onClose={handleOfflineClose}
-                    t={t}
-                />
-            )}
-            {visibility.prestige && (
-                <PrestigeModal
-                    currentLevel={game.level}
-                    generation={game.generation}
-                    prestigePoints={game.prestigePoints}
-                    prestigeUpgrades={game.prestigeUpgrades}
-                    onPrestige={handlePrestige}
-                    onUpgrade={handlePrestigeUpgrade}
-                    onClose={() => { audio.playClick(); closeModal('prestige'); }}
-                    t={t}
-                />
-            )}
-            {visibility.stats && (
-                <StatsModal
-                    stats={{
-                        level: game.level,
-                        generation: game.generation,
-                        coins: game.coins,
-                        totalXpEarned: game.totalXpEarned,
-                        totalCoinsEarned: game.totalCoinsEarned,
-                        totalEventsResolved: game.totalEventsResolved,
-                        interactionCount: game.interactions,
-                        maxCombo: game.maxCombo,
-                        maxLoginStreak: game.maxLoginStreak,
-                        playTimeMs: game.playTimeMs,
-                        joinDate: game.joinDate,
-                        companion: companionEmoji,
-                        achievements: game.achievements,
-                    }}
-                    onClose={() => { audio.playClick(); closeModal('stats'); }}
-                    t={t}
-                />
-            )}
-            {visibility.miniGames && (
-                <MiniGameModal
-                    gamesRemaining={gamesRemaining}
-                    onReward={handleMinigameReward}
-                    onClose={() => { audio.playClick(); closeModal('miniGames'); }}
-                    t={t}
-                />
-            )}
-            {visibility.companions && (
-                <CompanionSelect
-                    unlockedCompanions={game.unlockedCompanions}
-                    equippedCompanion={game.companion}
-                    userCoins={game.coins}
-                    userLevel={game.level}
-                    generation={game.generation}
-                    onBuy={handleBuyCompanion}
-                    onEquip={handleEquipCompanion}
-                    onClose={() => { audio.playClick(); closeModal('companions'); }}
-                    t={t}
-                />
-            )}
-            {visibility.gardenVisit && (
-                <GardenVisitModal
-                    visitData={gardenVisitData}
-                    currentUser={currentUser}
-                    onGift={handleSendGift}
-                    giftError={giftError}
-                    onClose={() => { audio.playClick(); closeModal('gardenVisit'); }}
-                    t={t}
-                />
-            )}
-
-            {/* Top toolbar */}
-            <div className="top-hud-weather absolute top-3 left-3 z-30">
-                <WeatherDisplay weather={game.weather} season={game.season} isDay={isDay} t={t} />
-            </div>
-
-            <div className="top-hud-actions absolute top-3 right-3 flex flex-col gap-2 z-30 items-end">
-                {/* Row 1: Status + coins + combo */}
-                <div className="flex gap-1.5 items-center">
-                    <div title={serverStatus === 'connected' ? "Online" : "Offline"} className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-all ${serverStatus === 'connected' ? 'bg-white text-green-500' : 'bg-red-100 text-red-500'}`}>{serverStatus === 'connected' ? <CloudCheck size={16} /> : <CloudOff size={16} />}</div>
-
-                    {game.combo > 0 && (
-                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-full shadow-lg font-bold text-xs bg-orange-500 text-white animate-pulse">
-                            🔥 ×{game.combo}
-                        </div>
-                    )}
-
-                    {goldenHourActive && (
-                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-full shadow-lg font-bold text-xs bg-yellow-400 text-yellow-900 animate-pulse">
-                            ☀️ 2×
-                        </div>
-                    )}
-
-                    <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full shadow-lg font-bold text-xs border ${isDay ? 'bg-white text-yellow-600 border-yellow-100' : 'bg-slate-700 text-yellow-400 border-slate-600'}`}>
-                        <Coins size={14} />
-                        <span>{Math.floor(game.coins)}</span>
-                    </div>
-                </div>
-
-                {/* Unified Menu Glass Panel */}
-                <div className={`top-hud-menu flex flex-wrap gap-1 p-1 rounded-2xl glass-panel border ${isDay ? 'bg-white/70 border-white/40 text-gray-700' : 'bg-slate-800/60 border-slate-700/40 text-gray-200'} max-w-[210px] sm:max-w-none justify-end`}>
-                    <button onClick={cycleLang} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 font-bold text-[10px]" title={t('langName')}>{t('langName')}</button>
-                    <button onClick={() => { audio.playClick(); openModal('profile'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 overflow-hidden" title={t('profile')}>
-                        {game.profileData?.avatar ? <img src={game.profileData.avatar} alt="User" className="w-full h-full object-cover" /> : <User size={16} />}
-                    </button>
-                    <button onClick={() => { audio.playClick(); openModal('store'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-amber-500" title={t('store')}><ShoppingCart size={16} /></button>
-                    <button onClick={toggleCollection} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-green-600 dark:text-green-400" title={t('collection')}><BookOpen size={16} /></button>
-                    <button onClick={handleOpenLeaderboard} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-purple-600 dark:text-purple-400" title={t('leaderboard')}><Trophy size={16} /></button>
-                    <button onClick={() => { audio.playClick(); openModal('companions'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('companions')}>
-                        {companionAssetId ? <img src={`/assets/companions/${companionAssetId}.png`} alt="" aria-hidden="true" className="w-6 h-6 object-contain" /> : <Paw size={16} />}
-                    </button>
-                    <button onClick={() => { audio.playClick(); openModal('prestige'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('prestige')}><Recycle size={16} /></button>
-                    <button onClick={() => { audio.playClick(); openModal('miniGames'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('miniGames')}><Gamepad size={16} /></button>
-                    <button onClick={() => { audio.playClick(); openModal('stats'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('stats')}><StatsIcon size={16} /></button>
-                    <button onClick={() => { audio.playClick(); openModal('dailyReward'); }} className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all text-base ${game.dailyRewardAvailable ? 'bg-amber-400/80 animate-pulse text-amber-950' : 'hover:bg-black/10 dark:hover:bg-white/10'}`} title={t('dailyReward')}><Calendar size={16} /></button>
-                    <button onClick={toggleMute} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-blue-500" title={t('mute')}>{isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
-                </div>
-
-                {/* Row 4: Time warp */}
-                <button onClick={toggleDemoState} className={`flex items-center gap-1.5 px-3 py-1 rounded-full shadow-lg text-[10px] font-bold transition-all ${game.isDemoMode ? 'bg-purple-600 text-white animate-pulse' : (isDay ? 'bg-white/80 text-gray-600 border border-white/50' : 'bg-slate-700/80 text-gray-300 border border-slate-600')}`}><Clock size={12} /> {game.isDemoMode ? t('timeWarp').split('(')[0] : t('realTime')}</button>
-
-                <div className={`text-[9px] text-right px-1 ${isDay ? 'text-gray-500' : 'text-gray-400'}`}>
-                    {currentUser}
-                    {game.generation > 0 && ` | Gen ${game.generation}`}
-                    {companionAssetId && <img src={`/assets/companions/${companionAssetId}.png`} alt="" aria-hidden="true" className="inline-block w-4 h-4 object-contain align-[-3px] ml-1" />}
-                    {' | '}{game.isDemoMode ? t('rateDemo') : t('rateNormal')}
-                </div>
-            </div>
+            <GameModals {...modalProps} />
+            <GameHeader {...headerProps} />
 
             <div className="game-main-panel w-full max-w-md flex-1 flex flex-col relative z-10 pb-6 pt-16 px-4">
                 {/* Visual Action Bursts */}
