@@ -1,100 +1,42 @@
 const API_BASE = '';
 
-async function request(url, options = {}) {
-  const res = await fetch(`${API_BASE}${url}`, {
+export async function request(path, options) {
+  const response = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `HTTP ${res.status}`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(payload.error || `HTTP ${response.status}`);
   }
-  return res.json();
+  return response.json();
 }
 
+export const get = path => request(path, { method: 'GET' });
+export const post = (path, body) => request(path, {
+  method: 'POST',
+  body: JSON.stringify(body),
+});
+
 export const api = {
-  getUsers: () => request('/api/users'),
-
-  heartbeat: (username) => request('/api/heartbeat', {
-    method: 'POST',
-    body: JSON.stringify({ username }),
-  }),
-
-  toggleWarp: (username) => request('/api/toggle-warp', {
-    method: 'POST',
-    body: JSON.stringify({ username }),
-  }),
-
-  sendAction: (username, action) => request('/api/action', {
-    method: 'POST',
-    body: JSON.stringify({ username, action }),
-  }),
-
-  updateProfile: (username, profile) => request('/api/profile/update', {
-    method: 'POST',
-    body: JSON.stringify({ username, profile }),
-  }),
-
-  buyItem: (username, itemId, type) => request('/api/store/buy', {
-    method: 'POST',
-    body: JSON.stringify({ username, itemId, type }),
-  }),
-
-  equipItem: (username, itemId) => request('/api/store/equip', {
-    method: 'POST',
-    body: JSON.stringify({ username, itemId }),
-  }),
-
-  getLeaderboard: () => request('/api/leaderboard'),
-
-  getAchievements: (username) =>
-    request(`/api/achievements/${encodeURIComponent(username)}`),
-
-  health: () => request('/api/health'),
-
-  // --- New API Methods ---
-
-  getWeather: () => request('/api/weather'),
-
-  claimDailyReward: (username) => request('/api/daily-reward/claim', {
-    method: 'POST',
-    body: JSON.stringify({ username }),
-  }),
-
-  buyCompanion: (username, companionId) => request('/api/companion/buy', {
-    method: 'POST',
-    body: JSON.stringify({ username, companionId }),
-  }),
-
-  equipCompanion: (username, companionId) => request('/api/companion/equip', {
-    method: 'POST',
-    body: JSON.stringify({ username, companionId }),
-  }),
-
-  prestige: (username) => request('/api/prestige', {
-    method: 'POST',
-    body: JSON.stringify({ username }),
-  }),
-
-  prestigeUpgrade: (username, upgradeId) => request('/api/prestige/upgrade', {
-    method: 'POST',
-    body: JSON.stringify({ username, upgradeId }),
-  }),
-
-  shakeTree: (username) => request('/api/shake', {
-    method: 'POST',
-    body: JSON.stringify({ username }),
-  }),
-
-  visitGarden: (username) => request(`/api/garden/${encodeURIComponent(username)}`),
-
-  sendGift: (fromUsername, toUsername) => request('/api/gift', {
-    method: 'POST',
-    body: JSON.stringify({ fromUsername, toUsername }),
-  }),
-
-  claimMinigameReward: (username, gameType, score) => request('/api/minigame/reward', {
-    method: 'POST',
-    body: JSON.stringify({ username, gameType, score }),
-  }),
+  getUsers: () => get('/api/users'),
+  heartbeat: username => post('/api/heartbeat', { username }),
+  toggleWarp: username => post('/api/toggle-warp', { username }),
+  sendAction: (username, action) => post('/api/action', { username, action }),
+  updateProfile: (username, profile) => post('/api/profile/update', { username, profile }),
+  buyItem: (username, itemId, type) => post('/api/store/buy', { username, itemId, type }),
+  equipItem: (username, itemId) => post('/api/store/equip', { username, itemId }),
+  getLeaderboard: () => get('/api/leaderboard'),
+  getAchievements: username => get(`/api/achievements/${encodeURIComponent(username)}`),
+  health: () => get('/api/health'),
+  getWeather: () => get('/api/weather'),
+  claimDailyReward: username => post('/api/daily-reward/claim', { username }),
+  buyCompanion: (username, companionId) => post('/api/companion/buy', { username, companionId }),
+  equipCompanion: (username, companionId) => post('/api/companion/equip', { username, companionId }),
+  prestige: username => post('/api/prestige', { username }),
+  prestigeUpgrade: (username, upgradeId) => post('/api/prestige/upgrade', { username, upgradeId }),
+  shakeTree: username => post('/api/shake', { username }),
+  visitGarden: username => get(`/api/garden/${encodeURIComponent(username)}`),
+  sendGift: (fromUsername, toUsername) => post('/api/gift', { fromUsername, toUsername }),
+  claimMinigameReward: (username, gameType, score) => post('/api/minigame/reward', { username, gameType, score }),
 };
