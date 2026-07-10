@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useReducer, useMemo, useCallback, memo } from 'react';
 import { MAX_LEVEL, ACHIEVEMENT_DEFS } from './constants';
 import { gameReducer, initialGameState } from './state/gameReducer';
+import { useGameModals } from './hooks/useGameModals';
 import { audio } from './utils/audio';
 import { api } from './utils/api';
 import { createTranslator } from './utils/i18n';
@@ -47,22 +48,18 @@ export default function App() {
 
     // OPTIMISTIC UI STATE
     const [localActiveEvent, setLocalActiveEvent] = useState(null);
-    const [showCollection, setShowCollection] = useState(false);
-    const [showStore, setShowStore] = useState(false);
-    const [showProfile, setShowProfile] = useState(false);
-    const [showLeaderboard, setShowLeaderboard] = useState(false);
-    const [leaderboardData, setLeaderboardData] = useState([]);
-
-    // NEW MODAL STATES
-    const [showDailyReward, setShowDailyReward] = useState(false);
-    const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
-    const [showPrestige, setShowPrestige] = useState(false);
-    const [showStats, setShowStats] = useState(false);
-    const [showMiniGames, setShowMiniGames] = useState(false);
-    const [showCompanions, setShowCompanions] = useState(false);
-    const [showGardenVisit, setShowGardenVisit] = useState(false);
-    const [gardenVisitData, setGardenVisitData] = useState(null);
-    const [giftError, setGiftError] = useState(null);
+    const {
+        visibility,
+        openModal,
+        closeModal,
+        resetModals,
+        leaderboardData,
+        setLeaderboardData,
+        gardenVisitData,
+        setGardenVisitData,
+        giftError,
+        setGiftError,
+    } = useGameModals();
     const [firstLoad, setFirstLoad] = useState(true);
 
     // VISUAL EFFECTS STATE
@@ -136,10 +133,10 @@ export default function App() {
                     setFirstLoad(false);
                     // Show offline earnings if significant
                     if ((data.lastOfflineXp || 0) > 0.5 || (data.lastOfflineCoins || 0) > 1) {
-                        setShowOfflineEarnings(true);
+                        openModal('offlineEarnings');
                     } else if (data.dailyRewardAvailable) {
                         // Show daily reward prompt
-                        setShowDailyReward(true);
+                        openModal('dailyReward');
                     }
                 }
             } catch (e) {
@@ -256,16 +253,7 @@ export default function App() {
         setExistingUsers([]);
         dispatch({ type: 'RESET' });
         setLocalActiveEvent(null);
-        setShowProfile(false);
-        setShowStore(false);
-        setShowCollection(false);
-        setShowLeaderboard(false);
-        setShowDailyReward(false);
-        setShowPrestige(false);
-        setShowStats(false);
-        setShowMiniGames(false);
-        setShowCompanions(false);
-        setShowGardenVisit(false);
+        resetModals();
         setFirstLoad(true);
 
         api.getUsers().then(users => setExistingUsers(users)).catch(() => {});
@@ -281,8 +269,12 @@ export default function App() {
 
     const toggleCollection = useCallback(() => {
         audio.playClick();
-        setShowCollection(prev => !prev);
-    }, []);
+        if (visibility.collection) {
+            closeModal('collection');
+        } else {
+            openModal('collection');
+        }
+    }, [visibility.collection, openModal, closeModal]);
 
     const cycleLang = useCallback(() => {
         audio.playClick();
@@ -303,7 +295,7 @@ export default function App() {
         } catch (e) {
             setLeaderboardData([]);
         }
-        setShowLeaderboard(true);
+        openModal('leaderboard');
     }, []);
 
     const isClockDay = new Date().getHours() > 6 && new Date().getHours() < 18;
@@ -400,8 +392,8 @@ export default function App() {
             const data = await api.visitGarden(username);
             setGardenVisitData(data);
             setGiftError(null);
-            setShowGardenVisit(true);
-            setShowLeaderboard(false);
+            openModal('gardenVisit');
+            closeModal('leaderboard');
         } catch (e) { console.error(e); }
     }, []);
 
@@ -423,10 +415,10 @@ export default function App() {
     }, [currentUser, t, addLog]);
 
     const handleOfflineClose = useCallback(() => {
-        setShowOfflineEarnings(false);
+        closeModal('offlineEarnings');
         // After closing offline earnings, show daily reward if available
         if (game.dailyRewardAvailable) {
-            setTimeout(() => setShowDailyReward(true), 300);
+            setTimeout(() => openModal('dailyReward'), 300);
         }
     }, [game.dailyRewardAvailable]);
 
@@ -488,9 +480,9 @@ export default function App() {
             )}
 
             {/* --- MODALS --- */}
-            {showCollection && <CollectionModal currentLevel={game.level} achievements={game.achievements} onClose={toggleCollection} t={t} />}
-            {showStore && <StoreModal userCoins={game.coins} inventory={game.inventory} onBuy={handleBuy} onEquip={handleEquip} onClose={() => { audio.playClick(); setShowStore(false); }} t={t} />}
-            {showProfile && (
+            {visibility.collection && <CollectionModal currentLevel={game.level} achievements={game.achievements} onClose={toggleCollection} t={t} />}
+            {visibility.store && <StoreModal userCoins={game.coins} inventory={game.inventory} onBuy={handleBuy} onEquip={handleEquip} onClose={() => { audio.playClick(); closeModal('store'); }} t={t} />}
+            {visibility.profile && (
                 <ProfileModal
                     username={currentUser}
                     joinDate={game.joinDate}
@@ -498,31 +490,31 @@ export default function App() {
                     interactions={game.interactions}
                     profileData={game.profileData}
                     onSave={handleProfileSave}
-                    onClose={() => { audio.playClick(); setShowProfile(false); }}
+                    onClose={() => { audio.playClick(); closeModal('profile'); }}
                     onLogout={handleLogout}
                     t={t}
                 />
             )}
-            {showLeaderboard && (
+            {visibility.leaderboard && (
                 <LeaderboardModal
                     data={leaderboardData}
                     currentUser={currentUser}
                     onVisitGarden={handleVisitGarden}
-                    onClose={() => { audio.playClick(); setShowLeaderboard(false); }}
+                    onClose={() => { audio.playClick(); closeModal('leaderboard'); }}
                     t={t}
                 />
             )}
-            {showDailyReward && (
+            {visibility.dailyReward && (
                 <DailyRewardModal
                     loginStreak={game.loginStreak}
                     currentDayIndex={((game.loginStreak || 1) - 1) % 7}
                     claimed={game.dailyRewardClaimed}
                     onClaim={handleClaimDailyReward}
-                    onClose={() => setShowDailyReward(false)}
+                    onClose={() => closeModal('dailyReward')}
                     t={t}
                 />
             )}
-            {showOfflineEarnings && (
+            {visibility.offlineEarnings && (
                 <OfflineEarningsModal
                     xpEarned={game.lastOfflineXp}
                     coinsEarned={game.lastOfflineCoins}
@@ -531,7 +523,7 @@ export default function App() {
                     t={t}
                 />
             )}
-            {showPrestige && (
+            {visibility.prestige && (
                 <PrestigeModal
                     currentLevel={game.level}
                     generation={game.generation}
@@ -539,11 +531,11 @@ export default function App() {
                     prestigeUpgrades={game.prestigeUpgrades}
                     onPrestige={handlePrestige}
                     onUpgrade={handlePrestigeUpgrade}
-                    onClose={() => { audio.playClick(); setShowPrestige(false); }}
+                    onClose={() => { audio.playClick(); closeModal('prestige'); }}
                     t={t}
                 />
             )}
-            {showStats && (
+            {visibility.stats && (
                 <StatsModal
                     stats={{
                         level: game.level,
@@ -560,19 +552,19 @@ export default function App() {
                         companion: companionEmoji,
                         achievements: game.achievements,
                     }}
-                    onClose={() => { audio.playClick(); setShowStats(false); }}
+                    onClose={() => { audio.playClick(); closeModal('stats'); }}
                     t={t}
                 />
             )}
-            {showMiniGames && (
+            {visibility.miniGames && (
                 <MiniGameModal
                     gamesRemaining={gamesRemaining}
                     onReward={handleMinigameReward}
-                    onClose={() => { audio.playClick(); setShowMiniGames(false); }}
+                    onClose={() => { audio.playClick(); closeModal('miniGames'); }}
                     t={t}
                 />
             )}
-            {showCompanions && (
+            {visibility.companions && (
                 <CompanionSelect
                     unlockedCompanions={game.unlockedCompanions}
                     equippedCompanion={game.companion}
@@ -581,17 +573,17 @@ export default function App() {
                     generation={game.generation}
                     onBuy={handleBuyCompanion}
                     onEquip={handleEquipCompanion}
-                    onClose={() => { audio.playClick(); setShowCompanions(false); }}
+                    onClose={() => { audio.playClick(); closeModal('companions'); }}
                     t={t}
                 />
             )}
-            {showGardenVisit && (
+            {visibility.gardenVisit && (
                 <GardenVisitModal
                     visitData={gardenVisitData}
                     currentUser={currentUser}
                     onGift={handleSendGift}
                     giftError={giftError}
-                    onClose={() => { audio.playClick(); setShowGardenVisit(false); }}
+                    onClose={() => { audio.playClick(); closeModal('gardenVisit'); }}
                     t={t}
                 />
             )}
@@ -627,19 +619,19 @@ export default function App() {
                 {/* Unified Menu Glass Panel */}
                 <div className={`top-hud-menu flex flex-wrap gap-1 p-1 rounded-2xl glass-panel border ${isDay ? 'bg-white/70 border-white/40 text-gray-700' : 'bg-slate-800/60 border-slate-700/40 text-gray-200'} max-w-[210px] sm:max-w-none justify-end`}>
                     <button onClick={cycleLang} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 font-bold text-[10px]" title={t('langName')}>{t('langName')}</button>
-                    <button onClick={() => { audio.playClick(); setShowProfile(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 overflow-hidden" title={t('profile')}>
+                    <button onClick={() => { audio.playClick(); openModal('profile'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 overflow-hidden" title={t('profile')}>
                         {game.profileData?.avatar ? <img src={game.profileData.avatar} alt="User" className="w-full h-full object-cover" /> : <User size={16} />}
                     </button>
-                    <button onClick={() => { audio.playClick(); setShowStore(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-amber-500" title={t('store')}><ShoppingCart size={16} /></button>
+                    <button onClick={() => { audio.playClick(); openModal('store'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-amber-500" title={t('store')}><ShoppingCart size={16} /></button>
                     <button onClick={toggleCollection} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-green-600 dark:text-green-400" title={t('collection')}><BookOpen size={16} /></button>
                     <button onClick={handleOpenLeaderboard} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-purple-600 dark:text-purple-400" title={t('leaderboard')}><Trophy size={16} /></button>
-                    <button onClick={() => { audio.playClick(); setShowCompanions(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('companions')}>
+                    <button onClick={() => { audio.playClick(); openModal('companions'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('companions')}>
                         {companionAssetId ? <img src={`/assets/companions/${companionAssetId}.png`} alt="" aria-hidden="true" className="w-6 h-6 object-contain" /> : <Paw size={16} />}
                     </button>
-                    <button onClick={() => { audio.playClick(); setShowPrestige(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('prestige')}><Recycle size={16} /></button>
-                    <button onClick={() => { audio.playClick(); setShowMiniGames(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('miniGames')}><Gamepad size={16} /></button>
-                    <button onClick={() => { audio.playClick(); setShowStats(true); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('stats')}><StatsIcon size={16} /></button>
-                    <button onClick={() => { audio.playClick(); setShowDailyReward(true); }} className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all text-base ${game.dailyRewardAvailable ? 'bg-amber-400/80 animate-pulse text-amber-950' : 'hover:bg-black/10 dark:hover:bg-white/10'}`} title={t('dailyReward')}><Calendar size={16} /></button>
+                    <button onClick={() => { audio.playClick(); openModal('prestige'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('prestige')}><Recycle size={16} /></button>
+                    <button onClick={() => { audio.playClick(); openModal('miniGames'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('miniGames')}><Gamepad size={16} /></button>
+                    <button onClick={() => { audio.playClick(); openModal('stats'); }} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-base" title={t('stats')}><StatsIcon size={16} /></button>
+                    <button onClick={() => { audio.playClick(); openModal('dailyReward'); }} className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all text-base ${game.dailyRewardAvailable ? 'bg-amber-400/80 animate-pulse text-amber-950' : 'hover:bg-black/10 dark:hover:bg-white/10'}`} title={t('dailyReward')}><Calendar size={16} /></button>
                     <button onClick={toggleMute} className="flex items-center justify-center w-8 h-8 rounded-xl transition-all hover:bg-black/10 dark:hover:bg-white/10 text-blue-500" title={t('mute')}>{isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
                 </div>
 
