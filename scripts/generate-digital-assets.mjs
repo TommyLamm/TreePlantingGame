@@ -5,6 +5,15 @@ import { deflateSync } from 'node:zlib';
 const root = join(process.cwd(), 'client', 'public', 'assets');
 const manifest = [];
 
+const visualSystem = {
+  forestInk: '#244634',
+  moss: '#6F8B4E',
+  parchment: '#F3E7C8',
+  amber: '#D98B2B',
+  charcoalGreen: '#23302B',
+  nightInk: '#17283A',
+};
+
 function makeCanvas(width, height, color = [0, 0, 0, 0]) {
   const data = new Uint8Array(width * height * 4);
   for (let i = 0; i < data.length; i += 4) {
@@ -195,11 +204,11 @@ function makeEnvironment(name, night = false) {
 }
 
 const palettes = {
-  default: ['#3a2419', '#6f4529', '#0f3b18', '#1e6b2c', '#58a647'],
-  cherry: ['#4a2b24', '#7a4938', '#8b1649', '#df4f8d', '#ffd3e4'],
-  autumn: ['#4d2415', '#8a4a24', '#9a2e12', '#e8751a', '#ffca3a'],
-  snow: ['#3b3f46', '#75808a', '#527181', '#c7d6df', '#f8fbff'],
-  golden: ['#57320f', '#9a5b16', '#f29f05', '#ffd64d', '#fff1a8'],
+  default: ['#3B2A20', '#76533A', '#244634', '#47734C', '#7FA46A'],
+  cherry: ['#493028', '#7C5844', '#6F3F50', '#C67888', '#E7B8B1'],
+  autumn: ['#4A2C20', '#805336', '#6D3F27', '#B66D32', '#D9A44E'],
+  snow: ['#3F4747', '#75817D', '#526B68', '#B7C7BF', '#E7ECE4'],
+  golden: ['#53371F', '#8A6031', '#8A6B2F', '#C99A42', '#E5C875'],
 };
 
 function drawTreeAsset(skin, stage) {
