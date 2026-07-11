@@ -7,12 +7,12 @@ export function ActionButton({ icon, label, onClick, isActive }) {
         <button
             onClick={handleClick}
             disabled={!isActive}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 px-1.5 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] action-btn ${
+            className={`action-btn ${
                 isActive ? 'action-btn-active' : 'action-btn-disabled'
             }`}
         >
-            <span className="text-lg">{icon}</span>
-            <span className="text-[9px] font-extrabold uppercase tracking-wider">{label}</span>
+            <span className="action-btn-icon">{icon}</span>
+            <span className="action-btn-label">{label}</span>
         </button>
     )
 }

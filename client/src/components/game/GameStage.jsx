@@ -4,6 +4,14 @@ import { TreeVisual } from '../TreeVisual';
 import { CompanionSprite } from '../CompanionSprite';
 
 const MemoizedTree = memo(TreeVisual);
+const BURST_LABELS = {
+    WATER: 'Splash!',
+    PEST: 'Shoo!',
+    FERTILIZE: 'Nourish!',
+    PRUNE: 'Trim!',
+    SUNLIGHT: 'Warmth!',
+    STORM: 'Charge!',
+};
 
 export function GameStage({ actionBursts, shakeAnim, game, isDay, onShakeTree }) {
     return (
@@ -22,14 +30,7 @@ export function GameStage({ actionBursts, shakeAnim, game, isDay, onShakeTree })
                             <span key={i} style={{ '--burst-angle': `${i * 60}deg`, '--burst-distance': `${22 + i * 4}px` }} />
                         ))}
                     </div>
-                    <div className="text-[11px] font-extrabold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-center mt-1 whitespace-nowrap bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                        {burst.type === 'WATER' && '💧 Splash!'}
-                        {burst.type === 'PEST' && '🐛 Shoo!'}
-                        {burst.type === 'FERTILIZE' && '🍂 Nourish!'}
-                        {burst.type === 'PRUNE' && '✂️ Trim!'}
-                        {burst.type === 'SUNLIGHT' && '✨ Warmth!'}
-                        {burst.type === 'STORM' && '⚡ Charge!'}
-                    </div>
+                    <div className="action-burst-label">{BURST_LABELS[burst.type]}</div>
                 </div>
             ))}
 

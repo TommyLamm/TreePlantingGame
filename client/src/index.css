@@ -1046,6 +1046,21 @@ button > * {
   min-height: 52px;
 }
 
+.action-burst-label {
+  margin-top: 4px;
+  padding: 3px 8px;
+  color: var(--ui-parchment);
+  background: rgba(35, 48, 43, 0.76);
+  border: 1px solid rgba(243, 231, 200, 0.22);
+  border-radius: 999px;
+  box-shadow: var(--ui-shadow-pressed);
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .action-burst-particles {
   position: absolute;
   inset: 6px;
@@ -1375,26 +1390,62 @@ button > * {
 /* Action Button Premium Styling */
 .action-btn {
   --button-texture: url('/assets/ui/action-active.png');
-  border-radius: 14px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  display: flex;
+  min-width: 48px;
+  min-height: 52px;
+  flex: 1 1 48px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 5px;
+  border-radius: var(--ui-radius-control);
+  box-shadow: var(--ui-shadow-pressed);
+  transition: var(--ui-transition-color), var(--ui-transition-motion);
 }
 
 .action-btn::before {
-  opacity: 0.36;
+  opacity: 0.08;
 }
 
-.glass-panel-day .action-btn-active {
-  background: linear-gradient(135deg, var(--color-canopy-green), #3b8754);
-  color: white;
-  box-shadow: 0 6px 16px rgba(47, 107, 69, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.action-btn:not(:disabled):hover {
+  transform: translateY(-1px);
 }
 
-.glass-panel-night .action-btn-active {
-  background: linear-gradient(135deg, #449d63, var(--color-canopy-green));
-  color: white;
-  box-shadow: 0 6px 20px rgba(74, 222, 128, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+.action-btn:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.action-btn-icon {
+  display: grid;
+  place-items: center;
+}
+
+.action-btn-label {
+  font-size: 0.7rem;
+  font-weight: 780;
+  line-height: 1;
+}
+
+.status-panel-day .action-btn-active {
+  color: var(--ui-parchment);
+  background: var(--ui-forest-ink);
+  border: 1px solid rgba(36, 70, 52, 0.5);
+}
+
+.status-panel-night .action-btn-active {
+  color: var(--ui-night);
+  background: var(--ui-parchment);
+  border: 1px solid rgba(243, 231, 200, 0.5);
+}
+
+.action-btn-disabled {
+  --button-texture: url('/assets/ui/action-disabled.png');
+  color: inherit;
+  background: rgba(111, 139, 78, 0.08);
+  border: 1px solid rgba(111, 139, 78, 0.15);
+  box-shadow: none;
+  opacity: 0.48;
 }
 
 .glass-panel-day .action-btn-disabled {

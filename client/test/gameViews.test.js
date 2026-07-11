@@ -115,6 +115,8 @@ test('game stage and action panel render through their prop boundaries', async (
     assert.match(stageMarkup, /scene-focus-layer/);
     assert.match(stageMarkup, /scene-support-layer/);
     assert.match(stageMarkup, /scene-companion-layer/);
+    assert.doesNotMatch(stageMarkup, /💧|🐛|🍂|✂️|✨|⚡/);
+    assert.match(stageMarkup, /action-burst-label/);
 
     const panelMarkup = renderToStaticMarkup(React.createElement(ActionPanel, {
       game,
