@@ -63,8 +63,11 @@ test('game modal and header views render through their prop boundaries', async (
       onToggleDemoState() {},
     }));
 
-    assert.match(headerMarkup, /top-hud-weather/);
-    assert.match(headerMarkup, /top-hud-actions/);
+    assert.match(headerMarkup, /hud-environment/);
+    assert.match(headerMarkup, /hud-resources/);
+    assert.match(headerMarkup, /hud-tools/);
+    assert.match(headerMarkup, /aria-label="Game tools"/);
+    assert.doesNotMatch(headerMarkup, /🔥|☀️/);
     assert.match(headerMarkup, />42</);
   } finally {
     await vite.close();
