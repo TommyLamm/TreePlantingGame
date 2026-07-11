@@ -79,10 +79,12 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
             ].filter(Boolean).join(' ')}
             aria-label={`Tree level ${safeLevel}`}
         >
-            <img className="raster-ground-patch" src="/assets/decor/ground-patch.png" alt="" aria-hidden="true" draggable="false" />
-            <div className="tree-ground-shadow" aria-hidden="true" />
-            <div className="tree-ground-halo" aria-hidden="true" />
-            <div className="tree-ground-vegetation" aria-hidden="true" />
+            <div className="scene-ground-layer" aria-hidden="true">
+                <img className="raster-ground-patch" src="/assets/decor/ground-patch.png" alt="" draggable="false" />
+                <div className="tree-ground-shadow" />
+                <div className="tree-ground-halo" />
+                <div className="tree-ground-vegetation" />
+            </div>
             {levelUpAnim && (
                 <div className="raster-level-up-ring" aria-hidden="true" />
             )}
@@ -101,26 +103,30 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
                 </div>
             )}
 
-            <div className="raster-tree-wrap">
-                {!isStatic && <div className="raster-tree-glow" aria-hidden="true" />}
-                <img
-                    className="raster-tree-art"
-                    src={treeSrc}
-                    alt=""
-                    aria-hidden="true"
-                    draggable="false"
-                />
+            <div className="scene-focus-layer">
+                <div className="raster-tree-wrap">
+                    {!isStatic && <div className="raster-tree-glow" aria-hidden="true" />}
+                    <img
+                        className="raster-tree-art"
+                        src={treeSrc}
+                        alt=""
+                        aria-hidden="true"
+                        draggable="false"
+                    />
+                </div>
             </div>
 
-            {stage >= 2 && (
-                <img className="raster-person raster-person-right" src="/assets/decor/person.png" alt="" aria-hidden="true" draggable="false" />
-            )}
-            {stage >= 4 && (
-                <img className="raster-house" src="/assets/decor/house.png" alt="" aria-hidden="true" draggable="false" />
-            )}
-            {stage >= 5 && (
-                <img className="raster-person raster-person-left" src="/assets/decor/person.png" alt="" aria-hidden="true" draggable="false" />
-            )}
+            <div className="scene-support-layer" aria-hidden="true">
+                {stage >= 2 && (
+                    <img className="raster-person raster-person-right" src="/assets/decor/person.png" alt="" draggable="false" />
+                )}
+                {stage >= 4 && (
+                    <img className="raster-house" src="/assets/decor/house.png" alt="" draggable="false" />
+                )}
+                {stage >= 5 && (
+                    <img className="raster-person raster-person-left" src="/assets/decor/person.png" alt="" draggable="false" />
+                )}
+            </div>
 
             {stage >= 2 && (
                 <div className="raster-season-accents" aria-hidden="true">

@@ -16,7 +16,7 @@ export const CompanionSprite = ({ companion, isDay = true }) => {
     const config = companionConfig[assetId];
 
     return (
-        <div className={`companion-sprite ${config.className} ${isDay ? 'companion-day' : 'companion-night'}`} aria-label={config.label}>
+        <div className={`scene-companion-layer companion-sprite ${config.className} ${isDay ? 'companion-day' : 'companion-night'}`} aria-label={config.label}>
             <div className="companion-glow" />
             <img
                 className="companion-art"

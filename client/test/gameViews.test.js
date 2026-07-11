@@ -108,6 +108,10 @@ test('game stage and action panel render through their prop boundaries', async (
     assert.match(stageMarkup, /Tree level 12/);
     assert.match(stageMarkup, /Butterfly companion/);
     assert.match(stageMarkup, /animate-wiggle/);
+    assert.match(stageMarkup, /scene-ground-layer/);
+    assert.match(stageMarkup, /scene-focus-layer/);
+    assert.match(stageMarkup, /scene-support-layer/);
+    assert.match(stageMarkup, /scene-companion-layer/);
 
     const panelMarkup = renderToStaticMarkup(React.createElement(ActionPanel, {
       game,
