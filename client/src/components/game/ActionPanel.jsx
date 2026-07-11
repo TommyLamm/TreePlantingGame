@@ -25,6 +25,10 @@ export function ActionPanel({
         STORM: t('storm'),
     };
 
+    const eventMessage = localActiveEvent === 'STORM'
+        ? t('stormWarning').replace(/^⚡\uFE0F?\s*/u, '')
+        : t('action');
+
     return (
         <section
             className={`game-status-panel ${isDay ? 'status-panel-day' : 'status-panel-night'}`}
@@ -62,7 +66,7 @@ export function ActionPanel({
                 <div className={`event-actions event-${localActiveEvent.toLowerCase()}`}>
                     <p className="event-label">
                         <Zap size={14} />
-                        {localActiveEvent === 'STORM' ? t('stormWarning') : t('action')}
+                        {eventMessage}
                     </p>
                     <div className="event-action-buttons">
                         {Object.entries(eventIcons).map(([key, icon]) => (

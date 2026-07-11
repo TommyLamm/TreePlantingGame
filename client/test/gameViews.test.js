@@ -137,6 +137,20 @@ test('game stage and action panel render through their prop boundaries', async (
     assert.match(panelMarkup, /status-progress/);
     assert.match(panelMarkup, /event-actions/);
     assert.doesNotMatch(panelMarkup, /border-dashed/);
+
+    const stormPanelMarkup = renderToStaticMarkup(React.createElement(ActionPanel, {
+      game,
+      isDay: false,
+      goldenHourActive: false,
+      localActiveEvent: 'STORM',
+      xpRequired: 20,
+      progress: 35,
+      t: key => key === 'stormWarning' ? '⚡ Storm approaching' : `translated:${key}`,
+      onAction() {},
+    }));
+
+    assert.match(stormPanelMarkup, /Storm approaching/);
+    assert.doesNotMatch(stormPanelMarkup, /⚡/);
   } finally {
     await vite.close();
   }

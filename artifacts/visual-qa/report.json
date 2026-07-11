@@ -1,0 +1,237 @@
+[
+  {
+    "name": "desktop-day-peaceful",
+    "width": 1440,
+    "height": 900,
+    "user": "VisualDay",
+    "hour": 10,
+    "metrics": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "horizontalOverflow": false,
+      "documentWidth": 1440,
+      "minToolWidth": 44,
+      "minToolHeight": 44,
+      "status": {
+        "left": 1032,
+        "top": 784,
+        "right": 1422,
+        "bottom": 882,
+        "width": 390,
+        "height": 98
+      },
+      "tree": {
+        "left": 489,
+        "top": 387,
+        "right": 950,
+        "bottom": 848,
+        "width": 461,
+        "height": 461
+      },
+      "statusTreeOverlap": false,
+      "hud": {
+        "left": 12,
+        "top": 12,
+        "right": 1428,
+        "bottom": 118,
+        "width": 1416,
+        "height": 106
+      },
+      "toolScrollWidth": 580,
+      "toolClientWidth": 580,
+      "emojiInMainHud": false
+    },
+    "networkFailures": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "desktop-night-companion-event",
+    "width": 1440,
+    "height": 900,
+    "user": "VisualEvent",
+    "hour": 22,
+    "metrics": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "horizontalOverflow": false,
+      "documentWidth": 1440,
+      "minToolWidth": 44,
+      "minToolHeight": 44,
+      "status": {
+        "left": 1032,
+        "top": 683,
+        "right": 1422,
+        "bottom": 882,
+        "width": 390,
+        "height": 199
+      },
+      "tree": {
+        "left": 489,
+        "top": 387,
+        "right": 950,
+        "bottom": 848,
+        "width": 461,
+        "height": 461
+      },
+      "statusTreeOverlap": false,
+      "hud": {
+        "left": 12,
+        "top": 12,
+        "right": 1428,
+        "bottom": 118,
+        "width": 1416,
+        "height": 106
+      },
+      "toolScrollWidth": 580,
+      "toolClientWidth": 580,
+      "emojiInMainHud": false
+    },
+    "networkFailures": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "tablet-day-event",
+    "width": 768,
+    "height": 1024,
+    "user": "VisualEvent",
+    "hour": 10,
+    "metrics": {
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "horizontalOverflow": false,
+      "documentWidth": 768,
+      "minToolWidth": 44,
+      "minToolHeight": 44,
+      "status": {
+        "left": 360,
+        "top": 807,
+        "right": 750,
+        "bottom": 1006,
+        "width": 390,
+        "height": 199
+      },
+      "tree": {
+        "left": 153,
+        "top": 333,
+        "right": 614,
+        "bottom": 794,
+        "width": 461,
+        "height": 461
+      },
+      "statusTreeOverlap": false,
+      "hud": {
+        "left": 12,
+        "top": 12,
+        "right": 756,
+        "bottom": 118,
+        "width": 744,
+        "height": 106
+      },
+      "toolScrollWidth": 580,
+      "toolClientWidth": 580,
+      "emojiInMainHud": false
+    },
+    "networkFailures": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "mobile-day-peaceful",
+    "width": 375,
+    "height": 812,
+    "user": "VisualDay",
+    "hour": 10,
+    "metrics": {
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "horizontalOverflow": false,
+      "documentWidth": 375,
+      "minToolWidth": 44,
+      "minToolHeight": 44,
+      "status": {
+        "left": 10,
+        "top": 704,
+        "right": 365,
+        "bottom": 802,
+        "width": 355,
+        "height": 98
+      },
+      "tree": {
+        "left": 22,
+        "top": 342,
+        "right": 353,
+        "bottom": 673,
+        "width": 331,
+        "height": 331
+      },
+      "statusTreeOverlap": false,
+      "hud": {
+        "left": 10,
+        "top": 10,
+        "right": 365,
+        "bottom": 116,
+        "width": 355,
+        "height": 106
+      },
+      "toolScrollWidth": 580,
+      "toolClientWidth": 353,
+      "emojiInMainHud": false
+    },
+    "networkFailures": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "mobile-night-storm",
+    "width": 375,
+    "height": 812,
+    "user": "VisualEvent",
+    "hour": 22,
+    "metrics": {
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "horizontalOverflow": false,
+      "documentWidth": 375,
+      "minToolWidth": 44,
+      "minToolHeight": 44,
+      "status": {
+        "left": 10,
+        "top": 603,
+        "right": 365,
+        "bottom": 802,
+        "width": 355,
+        "height": 199
+      },
+      "tree": {
+        "left": 22,
+        "top": 254,
+        "right": 353,
+        "bottom": 585,
+        "width": 331,
+        "height": 331
+      },
+      "statusTreeOverlap": false,
+      "hud": {
+        "left": 10,
+        "top": 10,
+        "right": 365,
+        "bottom": 116,
+        "width": 355,
+        "height": 106
+      },
+      "toolScrollWidth": 580,
+      "toolClientWidth": 353,
+      "emojiInMainHud": false
+    },
+    "networkFailures": [],
+    "consoleErrors": []
+  }
+]

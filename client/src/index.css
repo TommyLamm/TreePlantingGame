@@ -950,7 +950,7 @@ button > * {
   pointer-events: none;
   z-index: 18;
   transform-origin: 50% 100%;
-  animation: companion-breathe 3.8s ease-in-out infinite;
+  animation: companion-breathe 5.2s ease-in-out infinite;
 }
 
 .companion-art {
@@ -968,11 +968,12 @@ button > * {
   border-radius: 999px;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.42), transparent 68%);
   filter: blur(8px);
-  opacity: 0.7;
+  opacity: 0.18;
 }
 
 .companion-night .companion-glow {
   background: radial-gradient(circle, rgba(125, 211, 252, 0.28), transparent 70%);
+  opacity: 0.12;
 }
 
 .companion-butterfly {
@@ -999,7 +1000,7 @@ button > * {
 }
 
 .companion-owl.companion-night .companion-art {
-  filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.24)) drop-shadow(0 6px 8px rgba(15, 23, 42, 0.22));
+  filter: saturate(0.76) contrast(0.9) drop-shadow(5px 7px 7px rgba(15, 23, 42, 0.24));
 }
 
 .companion-deer {
@@ -1016,7 +1017,7 @@ button > * {
 
 .companion-phoenix .companion-glow {
   background: radial-gradient(circle, rgba(251, 146, 60, 0.48), rgba(244, 63, 94, 0.16), transparent 70%);
-  opacity: 0.95;
+  opacity: 0.24;
 }
 
 .companion-embers span {
@@ -1028,7 +1029,8 @@ button > * {
   border-radius: 999px;
   background: rgba(251, 191, 36, 0.85);
   box-shadow: 0 0 8px rgba(251, 146, 60, 0.7);
-  animation: companion-ember-rise 1.8s ease-out infinite;
+  animation: companion-ember-rise 4.2s ease-out infinite;
+  opacity: 0.42;
 }
 
 .companion-embers span:nth-child(2) {
@@ -1925,7 +1927,7 @@ button > * {
     transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    transform: translate3d(0, -5px, 0) scale(1.03);
+    transform: translate3d(0, -4px, 0) scale(1.02);
   }
 }
 
@@ -1936,23 +1938,23 @@ button > * {
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
   8% {
-    transform: translate3d(0, -12px, 0) rotate(-4deg);
+    transform: translate3d(0, -9px, 0) rotate(-3deg);
   }
   14% {
-    transform: translate3d(6px, 0, 0) rotate(3deg);
+    transform: translate3d(5px, 0, 0) rotate(2deg);
   }
 }
 
 @keyframes companion-butterfly-path {
   0%,
   100% {
-    transform: translate3d(-12px, 0, 0) rotate(-6deg);
+    transform: translate3d(-8px, 0, 0) rotate(-5deg);
   }
   35% {
-    transform: translate3d(18px, -24px, 0) rotate(7deg);
+    transform: translate3d(12px, -17px, 0) rotate(6deg);
   }
   70% {
-    transform: translate3d(-4px, -42px, 0) rotate(-3deg);
+    transform: translate3d(-3px, -30px, 0) rotate(-3deg);
   }
 }
 
@@ -1962,10 +1964,10 @@ button > * {
     transform: translate3d(0, 0, 0);
   }
   42% {
-    transform: translate3d(10px, -16px, 0) rotate(4deg);
+    transform: translate3d(8px, -12px, 0) rotate(3deg);
   }
   50% {
-    transform: translate3d(4px, -8px, 0) rotate(-2deg);
+    transform: translate3d(3px, -6px, 0) rotate(-2deg);
   }
 }
 
@@ -1985,7 +1987,7 @@ button > * {
     transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    transform: translate3d(0, -10px, 0) scale(1.04);
+    transform: translate3d(0, -8px, 0) scale(1.03);
   }
 }
 
@@ -2099,94 +2101,115 @@ button > * {
   }
 }
 
+@media (max-width: 900px) {
+  .game-status-panel {
+    width: min(390px, calc(100vw - 20px));
+  }
+
+  .game-shell:has(.event-actions) .game-main-panel {
+    padding-bottom: 12.5rem !important;
+  }
+
+  .event-action-buttons {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .event-action-buttons::-webkit-scrollbar {
+    display: none;
+  }
+
+  .event-action-buttons .action-btn {
+    min-width: 48px;
+    flex: 0 0 48px;
+  }
+}
+
 @media (max-width: 640px) {
-  .top-hud-weather {
-    top: max(0.75rem, env(safe-area-inset-top)) !important;
-    left: 0.75rem !important;
+  .game-hud {
+    inset: max(10px, env(safe-area-inset-top)) 10px auto;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .weather-chip {
-    max-width: calc(100vw - 7rem);
-    gap: 0.375rem;
-    padding-inline: 0.625rem;
+    max-width: 52vw;
+    gap: 6px;
+    padding-inline: 9px;
   }
 
   .weather-chip-label {
     display: inline-block;
-    max-width: 4.75rem;
+    max-width: 4.25rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .top-hud-actions {
-    top: calc(max(0.75rem, env(safe-area-inset-top)) + 2.5rem) !important;
-    left: 0.75rem !important;
-    right: 0.75rem !important;
-    align-items: stretch !important;
+  .hud-resources {
+    max-width: 46vw;
+    gap: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
   }
 
-  .top-hud-actions > div:first-child,
-  .top-hud-actions > button {
-    align-self: flex-end;
-  }
-
-  .top-hud-actions > div:first-child {
-    flex-wrap: nowrap;
-  }
-
-  .top-hud-menu {
-    display: grid !important;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    width: 100%;
-    max-width: none !important;
-    justify-items: stretch;
-    overflow: visible;
-  }
-
-  .top-hud-menu > button {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .top-hud-actions > div:last-child {
+  .hud-resources::-webkit-scrollbar,
+  .hud-tools::-webkit-scrollbar {
     display: none;
   }
 
-  .game-main-panel {
-    padding-top: 11.25rem !important;
+  .resource-badge {
+    flex: 0 0 auto;
+    padding-inline: 8px;
   }
+
+  .hud-tools {
+    width: 100%;
+    max-width: calc(100vw - 20px);
+    justify-self: stretch;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .game-main-panel {
+    padding-top: 7.5rem !important;
+    padding-bottom: 7rem !important;
+  }
+
+  .game-shell:has(.event-actions) .game-main-panel {
+    padding-bottom: 12.5rem !important;
+  }
+
+  .game-status-panel {
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 10px;
+    width: auto;
+  }
+
+  .raster-tree-wrap {
+    width: min(88vw, 420px);
+    height: min(88vw, 420px);
+  }
+
 }
 
 @media (max-width: 380px) {
   .weather-chip {
-    max-width: calc(100vw - 6.25rem);
-    gap: 0.25rem;
-    padding-inline: 0.5rem;
-    font-size: 9px;
+    max-width: 50vw;
+    gap: 4px;
+    padding-inline: 7px;
   }
 
   .weather-chip-label {
-    max-width: 3.65rem;
-  }
-
-  .top-hud-actions {
-    left: 0.5rem !important;
-    right: 0.5rem !important;
-  }
-
-  .top-hud-menu {
-    gap: 0.125rem !important;
-    padding: 0.1875rem !important;
-  }
-
-  .top-hud-menu > button {
-    height: 1.875rem;
-    border-radius: 0.625rem;
+    max-width: 3.25rem;
   }
 
   .game-main-panel {
-    padding-top: 10.75rem !important;
+    padding-top: 7.25rem !important;
   }
 }
 
@@ -2212,6 +2235,15 @@ button > * {
   .raster-level-up-ring {
     animation: none !important;
     transform: none !important;
+  }
+
+  .action-burst,
+  .animate-burst,
+  .hud-tool-button,
+  .action-btn,
+  .progress-fill {
+    animation: none !important;
+    transition: none !important;
   }
 
   .environment-lightning,
