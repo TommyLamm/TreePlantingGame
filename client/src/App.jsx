@@ -209,7 +209,7 @@ export default function App() {
     if (isLoading) return <LoadingScreen t={t} />;
 
     return (
-        <div className={`game-shell fixed inset-0 flex flex-col items-center font-sans transition-colors duration-1000 ${isDay ? 'bg-gradient-to-b from-blue-200 to-blue-100' : 'bg-gradient-to-b from-indigo-900 to-slate-800 text-white'} overflow-hidden`}>
+        <div className={`game-shell game-typography fixed inset-0 flex flex-col items-center transition-colors duration-1000 ${isDay ? 'bg-gradient-to-b from-blue-200 to-blue-100' : 'bg-gradient-to-b from-indigo-900 to-slate-800 text-white'} overflow-hidden`}>
 
             <EnvironmentBackdrop
                 isDay={isDay}

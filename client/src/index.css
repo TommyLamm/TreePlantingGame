@@ -2,7 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Nunito Sans";
+  src: url("/assets/fonts/NunitoSans-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans TC";
+  src: url("/assets/fonts/NotoSansTC-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
+  --ui-forest-ink: #244634;
+  --ui-moss: #6f8b4e;
+  --ui-parchment: #f3e7c8;
+  --ui-parchment-deep: #dfcda8;
+  --ui-amber: #d98b2b;
+  --ui-charcoal: #23302b;
+  --ui-night: #17283a;
+  --ui-radius-panel: 14px;
+  --ui-radius-control: 10px;
+  --ui-shadow-raised: 0 8px 22px rgba(35, 48, 43, 0.22);
+  --ui-shadow-pressed: 0 3px 8px rgba(35, 48, 43, 0.2);
+  --ui-transition-color: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  --ui-transition-motion: transform 180ms ease-out, opacity 180ms ease-out;
+
   --color-canopy-green: #2F6B45;
   --color-moss-shadow: #193B2B;
   --color-morning-mist: #DDF3E4;
@@ -20,8 +50,7 @@
   --glass-border-night: rgba(255, 255, 255, 0.08);
   --glass-shadow-night: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
 
-  --panel-radius: 20px;
-  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --panel-radius: var(--ui-radius-panel);
 }
 
 /* Semantic Utility Classes */
@@ -33,7 +62,12 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  transition: var(--transition-smooth);
+  transition: background-color 1s ease, color 1s ease;
+}
+
+.game-typography {
+  font-family: "Nunito Sans", "Noto Sans TC", sans-serif;
+  color: var(--ui-charcoal);
 }
 
 .glass-panel {
@@ -42,7 +76,7 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: var(--panel-radius);
-  transition: var(--transition-smooth);
+  transition: var(--ui-transition-color), var(--ui-transition-motion);
   isolation: isolate;
 }
 
