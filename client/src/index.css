@@ -252,6 +252,126 @@
   color: #6e4a1f;
 }
 
+.game-status-panel {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  width: clamp(280px, 30vw, 390px);
+  padding: 14px;
+  border-radius: var(--ui-radius-panel);
+  box-shadow: var(--ui-shadow-raised);
+  backdrop-filter: blur(8px);
+}
+
+.status-panel-day {
+  color: var(--ui-charcoal);
+  background: rgba(243, 231, 200, 0.9);
+  border: 1px solid rgba(111, 139, 78, 0.42);
+}
+
+.status-panel-night {
+  color: #edf2e8;
+  background: rgba(23, 40, 58, 0.9);
+  border: 1px solid rgba(243, 231, 200, 0.22);
+}
+
+.status-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.status-level {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.status-max,
+.status-generation {
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  color: var(--ui-amber);
+}
+
+.status-xp {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.72;
+}
+
+.status-combo {
+  display: inline-flex;
+  grid-column: 2;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  color: var(--ui-amber);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.status-progress {
+  height: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(36, 70, 52, 0.16);
+}
+
+.status-panel-night .status-progress {
+  background: rgba(243, 231, 200, 0.16);
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--ui-moss);
+  transition: width 500ms ease-out;
+}
+
+.progress-fill-golden {
+  background: var(--ui-amber);
+}
+
+.event-actions {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(111, 139, 78, 0.28);
+}
+
+.event-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.event-storm .event-label::after {
+  content: "!";
+  display: grid;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  place-items: center;
+  color: #fff7e8;
+  background: #8b526d;
+  border-radius: 50%;
+}
+
+.event-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .glass-panel {
   position: relative;
   overflow: hidden;

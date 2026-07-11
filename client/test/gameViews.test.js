@@ -131,6 +131,10 @@ test('game stage and action panel render through their prop boundaries', async (
     assert.match(panelMarkup, /7 \/ 20 XP/);
     assert.match(panelMarkup, /translated:water/);
     assert.match(panelMarkup, /action-btn-active/);
+    assert.match(panelMarkup, /game-status-panel/);
+    assert.match(panelMarkup, /status-progress/);
+    assert.match(panelMarkup, /event-actions/);
+    assert.doesNotMatch(panelMarkup, /border-dashed/);
   } finally {
     await vite.close();
   }

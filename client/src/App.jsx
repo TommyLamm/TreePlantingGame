@@ -240,17 +240,17 @@ export default function App() {
                     isDay={isDay}
                     onShakeTree={handleShakeTree}
                 />
-                <ActionPanel
-                    game={game}
-                    isDay={isDay}
-                    goldenHourActive={goldenHourActive}
-                    localActiveEvent={localActiveEvent}
-                    xpRequired={xpRequired}
-                    progress={progress}
-                    t={t}
-                    onAction={handleAction}
-                />
             </div>
+            <ActionPanel
+                game={game}
+                isDay={isDay}
+                goldenHourActive={goldenHourActive}
+                localActiveEvent={localActiveEvent}
+                xpRequired={xpRequired}
+                progress={progress}
+                t={t}
+                onAction={handleAction}
+            />
             <div className="absolute bottom-2 w-full px-4 pointer-events-none flex flex-col-reverse items-center gap-1 z-30 h-12 justify-end">
                 {logs.map((log, i) => (<div key={i} className={`text-[10px] text-center text-white/95 bg-black/50 rounded-full px-3 py-1 backdrop-blur-md animate-in fade-in slide-in-from-bottom-1 shadow-sm transition-all max-w-[90%] truncate ${i === 0 ? 'scale-100 opacity-100' : 'scale-90 opacity-60'}`}>{log}</div>))}
             </div>
