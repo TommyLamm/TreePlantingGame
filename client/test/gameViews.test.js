@@ -66,7 +66,14 @@ test('game modal and header views render through their prop boundaries', async (
     assert.match(headerMarkup, /hud-environment/);
     assert.match(headerMarkup, /hud-resources/);
     assert.match(headerMarkup, /hud-tools/);
-    assert.match(headerMarkup, /aria-label="Game tools"/);
+    assert.match(headerMarkup, /aria-label="gameTools"/);
+    assert.equal((headerMarkup.match(/class="hud-tool-button/g) || []).length, 5);
+    assert.match(headerMarkup, />store</);
+    assert.match(headerMarkup, />collection</);
+    assert.match(headerMarkup, />companions</);
+    assert.match(headerMarkup, />reward</);
+    assert.match(headerMarkup, />more</);
+    assert.match(headerMarkup, /hud-notification-dot/);
     assert.doesNotMatch(headerMarkup, /🔥|☀️/);
     assert.match(headerMarkup, />42</);
   } finally {

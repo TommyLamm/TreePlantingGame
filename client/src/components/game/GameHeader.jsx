@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     BookOpen,
     Calendar,
@@ -35,6 +35,32 @@ export function GameHeader({
     onToggleMute,
     onToggleDemoState,
 }) {
+    const [isMoreOpen, setIsMoreOpen] = useState(false);
+    const toolRegionRef = useRef(null);
+
+    useEffect(() => {
+        if (!isMoreOpen) return undefined;
+
+        const closeOnOutsidePress = (event) => {
+            if (!toolRegionRef.current?.contains(event.target)) setIsMoreOpen(false);
+        };
+        const closeOnEscape = (event) => {
+            if (event.key === 'Escape') setIsMoreOpen(false);
+        };
+
+        document.addEventListener('pointerdown', closeOnOutsidePress);
+        document.addEventListener('keydown', closeOnEscape);
+        return () => {
+            document.removeEventListener('pointerdown', closeOnOutsidePress);
+            document.removeEventListener('keydown', closeOnEscape);
+        };
+    }, [isMoreOpen]);
+
+    const runMenuAction = (action) => {
+        setIsMoreOpen(false);
+        action();
+    };
+
     return (
         <header className="game-hud" aria-label="Game status and tools">
             <div className="hud-environment">
@@ -66,62 +92,95 @@ export function GameHeader({
                 </div>
             </div>
 
-            <nav
-                className="hud-tools"
-                aria-label="Game tools"
-                title={`${currentUser} · ${game.isDemoMode ? t('rateDemo') : t('rateNormal')}`}
-            >
-                <button type="button" onClick={onCycleLang} className="hud-tool-button hud-language" title={t('langName')}>
-                    {t('langName')}
-                </button>
-                <button type="button" onClick={() => onOpenModal('profile')} className="hud-tool-button" title={t('profile')}>
-                    {game.profileData?.avatar
-                        ? <img src={game.profileData.avatar} alt="" className="hud-profile-avatar" />
-                        : <User size={18} />}
-                </button>
-                <button type="button" onClick={() => onOpenModal('store')} className="hud-tool-button" title={t('store')}>
-                    <ShoppingCart size={18} />
-                </button>
-                <button type="button" onClick={onToggleCollection} className="hud-tool-button" title={t('collection')}>
-                    <BookOpen size={18} />
-                </button>
-                <button type="button" onClick={onOpenLeaderboard} className="hud-tool-button" title={t('leaderboard')}>
-                    <Trophy size={18} />
-                </button>
-                <button type="button" onClick={() => onOpenModal('companions')} className="hud-tool-button" title={t('companions')}>
-                    {companionAssetId
-                        ? <img src={`/assets/companions/${companionAssetId}.png`} alt="" className="hud-companion-avatar" />
-                        : <Paw size={18} />}
-                </button>
-                <button type="button" onClick={() => onOpenModal('prestige')} className="hud-tool-button" title={t('prestige')}>
-                    <Recycle size={18} />
-                </button>
-                <button type="button" onClick={() => onOpenModal('miniGames')} className="hud-tool-button" title={t('miniGames')}>
-                    <Gamepad size={18} />
-                </button>
-                <button type="button" onClick={() => onOpenModal('stats')} className="hud-tool-button" title={t('stats')}>
-                    <StatsIcon size={18} />
-                </button>
-                <button
-                    type="button"
-                    onClick={() => onOpenModal('dailyReward')}
-                    className={`hud-tool-button ${game.dailyRewardAvailable ? 'hud-tool-ready' : ''}`}
-                    title={t('dailyReward')}
+            <div className="hud-tool-region" ref={toolRegionRef}>
+                <nav
+                    className={`hud-tools ${isDay ? 'hud-tools-day' : 'hud-tools-night'}`}
+                    aria-label={t('gameTools')}
+                    title={`${currentUser} · ${game.isDemoMode ? t('rateDemo') : t('rateNormal')}`}
                 >
-                    <Calendar size={18} />
-                </button>
-                <button type="button" onClick={onToggleMute} className="hud-tool-button" title={t('mute')}>
-                    {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                </button>
-                <button
-                    type="button"
-                    onClick={onToggleDemoState}
-                    className={`hud-tool-button hud-time-rate ${game.isDemoMode ? 'hud-tool-active' : ''}`}
-                    title={game.isDemoMode ? t('timeWarp') : t('realTime')}
-                >
-                    {game.isDemoMode ? '2×' : '1×'}
-                </button>
-            </nav>
+                    <button type="button" onClick={() => onOpenModal('store')} className="hud-tool-button">
+                        <ShoppingCart size={18} />
+                        <span className="hud-tool-label">{t('store')}</span>
+                    </button>
+                    <button type="button" onClick={onToggleCollection} className="hud-tool-button">
+                        <BookOpen size={18} />
+                        <span className="hud-tool-label">{t('collection')}</span>
+                    </button>
+                    <button type="button" onClick={() => onOpenModal('companions')} className="hud-tool-button">
+                        <Paw size={18} />
+                        <span className="hud-tool-label">{t('companions')}</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onOpenModal('dailyReward')}
+                        className={`hud-tool-button ${game.dailyRewardAvailable ? 'hud-tool-ready' : ''}`}
+                    >
+                        <Calendar size={18} />
+                        <span className="hud-tool-label">{t('reward')}</span>
+                        {game.dailyRewardAvailable && <span className="hud-notification-dot" aria-hidden="true" />}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setIsMoreOpen(open => !open)}
+                        className={`hud-tool-button hud-more-button ${isMoreOpen ? 'hud-tool-active' : ''}`}
+                        aria-expanded={isMoreOpen}
+                        aria-controls="hud-more-menu"
+                    >
+                        <span className="hud-more-glyph" aria-hidden="true">•••</span>
+                        <span className="hud-tool-label">{t('more')}</span>
+                    </button>
+                </nav>
+
+                {isMoreOpen && (
+                    <div
+                        id="hud-more-menu"
+                        className={`hud-more-menu ${isDay ? 'hud-more-menu-day' : 'hud-more-menu-night'}`}
+                        role="menu"
+                        aria-label={t('more')}
+                    >
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(() => onOpenModal('profile'))}>
+                            {game.profileData?.avatar
+                                ? <img src={game.profileData.avatar} alt="" className="hud-profile-avatar" />
+                                : <User size={18} />}
+                            <span>{t('profile')}</span>
+                        </button>
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(onOpenLeaderboard)}>
+                            <Trophy size={18} />
+                            <span>{t('leaderboard')}</span>
+                        </button>
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(() => onOpenModal('prestige'))}>
+                            <Recycle size={18} />
+                            <span>{t('prestige')}</span>
+                        </button>
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(() => onOpenModal('miniGames'))}>
+                            <Gamepad size={18} />
+                            <span>{t('miniGames')}</span>
+                        </button>
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(() => onOpenModal('stats'))}>
+                            <StatsIcon size={18} />
+                            <span>{t('stats')}</span>
+                        </button>
+                        <div className="hud-menu-divider" aria-hidden="true" />
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(onCycleLang)}>
+                            <span className="hud-menu-text-icon">{t('langName')}</span>
+                            <span>{t('language')}</span>
+                        </button>
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(onToggleMute)}>
+                            {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                            <span>{isMuted ? t('soundOn') : t('mute')}</span>
+                        </button>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            className="hud-menu-item"
+                            onClick={() => runMenuAction(onToggleDemoState)}
+                        >
+                            <span className="hud-menu-text-icon">{game.isDemoMode ? '2×' : '1×'}</span>
+                            <span>{game.isDemoMode ? t('switchRealTime') : t('switchTimeWarp')}</span>
+                        </button>
+                    </div>
+                )}
+            </div>
         </header>
     );
 }
