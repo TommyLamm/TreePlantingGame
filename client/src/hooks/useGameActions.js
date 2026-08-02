@@ -212,7 +212,7 @@ export function useGameActions({
   const handleMinigameReward = useCallback(async (gameType, score) => {
     try {
       const data = await api.claimMinigameReward(currentUser, gameType, score);
-      dispatch({ type: "SYNC_SERVER", data });
+      dispatch({ type: "APPLY_MINIGAME_REWARD", data });
       addLog(t("coinsEarned", data.coinsEarned));
       if (data.xpEarned > 0) {
         addLog(t("xpEarned", data.xpEarned));

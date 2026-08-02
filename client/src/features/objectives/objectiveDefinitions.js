@@ -70,11 +70,19 @@ export function getObjectiveCurrent(game, def) {
       return safeNumber(game.level);
     case 'first_skin': {
       const inv = game.inventory;
-      if (!inv || !Array.isArray(inv.owned)) return 0;
-      return inv.owned.filter(id => SKIN_ITEM_IDS.has(id)).length;
+      if (!inv || typeof inv !== 'object') return 0;
+      const unlockedSkins = Array.isArray(inv.unlockedSkins)
+        ? inv.unlockedSkins
+        : Array.isArray(inv.owned)
+          ? inv.owned
+          : [];
+      return unlockedSkins.filter(id => SKIN_ITEM_IDS.has(id)).length;
     }
-    case 'first_companion':
-      return game.companion && typeof game.companion === 'object' && game.companion.id ? 1 : 0;
+    case 'first_companion': {
+      const companion = game.companion;
+      if (typeof companion === 'string') return companion.length > 0 ? 1 : 0;
+      return companion && typeof companion === 'object' && companion.id ? 1 : 0;
+    }
     case 'prestige_ready':
       return safeNumber(game.level);
     default:

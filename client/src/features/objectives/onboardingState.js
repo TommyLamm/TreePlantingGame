@@ -118,10 +118,11 @@ export function restoreOnboardingState(payload) {
   const stepCount = Number.isFinite(payload.stepCount)
     ? Math.max(1, Math.floor(payload.stepCount))
     : ONBOARDING_STEPS.length;
+  const requestedStep = Number(payload.step);
 
   return {
     active: !!payload.active,
-    step: clamp(Number(payload.step), 0, stepCount - 1),
+    step: Number.isFinite(requestedStep) ? clamp(requestedStep, 0, stepCount - 1) : 0,
     stepCount,
     completed: !!payload.completed,
     dismissed: !!payload.dismissed,

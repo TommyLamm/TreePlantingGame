@@ -28,8 +28,9 @@ export function deriveObjectives(game) {
   for (const def of OBJECTIVE_DEFS) {
     if (active.length >= 3) break;
 
+    if (isObjectiveCompleted(game, def)) continue;
+
     const current = getObjectiveCurrent(game, def);
-    const completed = isObjectiveCompleted(game, def);
 
     active.push({
       id: def.id,
@@ -37,7 +38,7 @@ export function deriveObjectives(game) {
       descriptionKey: def.descriptionKey,
       current,
       target: def.target,
-      completed,
+      completed: false,
       ...(def.navigationTarget ? { navigationTarget: def.navigationTarget } : {}),
     });
   }

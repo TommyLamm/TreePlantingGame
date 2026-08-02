@@ -31,7 +31,14 @@ export const initialGameState = {
     goldenHourUntil: 0,
     minigameCount: 0,
     minigameDate: null,
+    nextEventAt: null,
+    eventExpiresAt: null,
 };
+
+function finiteOr(value, fallback) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+}
 
 export function gameReducer(state, action) {
     switch (action.type) {
@@ -70,7 +77,26 @@ export function gameReducer(state, action) {
                 goldenHourUntil: action.data.goldenHourUntil || 0,
                 minigameCount: action.data.minigameCount || 0,
                 minigameDate: action.data.minigameDate || null,
+                nextEventAt: Number.isFinite(action.data.nextEventAt) ? action.data.nextEventAt : null,
+                eventExpiresAt: Number.isFinite(action.data.eventExpiresAt) ? action.data.eventExpiresAt : null,
             };
+        case 'APPLY_MINIGAME_REWARD': {
+            const gameState = action.data?.gameState;
+            if (!gameState || typeof gameState !== 'object') return state;
+            return {
+                ...state,
+                coins: finiteOr(gameState.coins, state.coins),
+                xp: finiteOr(gameState.xp, state.xp),
+                level: finiteOr(gameState.level, state.level),
+                totalXpEarned: finiteOr(gameState.totalXpEarned, state.totalXpEarned),
+                totalCoinsEarned: finiteOr(gameState.totalCoinsEarned, state.totalCoinsEarned),
+                goldenHourUntil: finiteOr(gameState.goldenHourUntil, state.goldenHourUntil),
+                minigameCount: finiteOr(gameState.minigameCount, state.minigameCount),
+                minigameDate: typeof gameState.minigameDate === 'string'
+                    ? gameState.minigameDate
+                    : state.minigameDate,
+            };
+        }
         case 'SET_DEMO':
             return { ...state, isDemoMode: action.value };
         case 'SET_COINS':

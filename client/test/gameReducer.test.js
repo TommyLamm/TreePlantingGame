@@ -38,6 +38,8 @@ function createDirtyGameState() {
         goldenHourUntil: 1700000000000,
         minigameCount: 7,
         minigameDate: '2024-06-15',
+        nextEventAt: 1700000010000,
+        eventExpiresAt: 1700000005000,
     };
 }
 
@@ -75,6 +77,8 @@ test('initialGameState contains the complete game state', () => {
         goldenHourUntil: 0,
         minigameCount: 0,
         minigameDate: null,
+        nextEventAt: null,
+        eventExpiresAt: null,
     });
 });
 
@@ -119,6 +123,8 @@ test('SYNC_SERVER maps every server field and coerces core numeric values', () =
         goldenHourUntil: 1700000000000,
         minigameCount: 3,
         minigameDate: '2025-01-02',
+        nextEventAt: 1700000010000,
+        eventExpiresAt: 1700000005000,
     };
 
     assert.deepEqual(gameReducer(initialGameState, { type: 'SYNC_SERVER', data }), {
@@ -155,6 +161,8 @@ test('SYNC_SERVER maps every server field and coerces core numeric values', () =
         goldenHourUntil: 1700000000000,
         minigameCount: 3,
         minigameDate: '2025-01-02',
+        nextEventAt: 1700000010000,
+        eventExpiresAt: 1700000005000,
     });
 });
 
@@ -199,6 +207,8 @@ test('SYNC_SERVER overwrites stale state with the existing fallback values', () 
         goldenHourUntil: result.goldenHourUntil,
         minigameCount: result.minigameCount,
         minigameDate: result.minigameDate,
+        nextEventAt: result.nextEventAt,
+        eventExpiresAt: result.eventExpiresAt,
     }, {
         achievements: [],
         weather: 'sunny',
@@ -222,8 +232,43 @@ test('SYNC_SERVER overwrites stale state with the existing fallback values', () 
         goldenHourUntil: 0,
         minigameCount: 0,
         minigameDate: null,
+        nextEventAt: null,
+        eventExpiresAt: null,
     });
     assert.deepEqual(state, sourceSnapshot);
+});
+
+test('APPLY_MINIGAME_REWARD applies only authoritative partial game state', () => {
+    const state = createDirtyGameState();
+    const sourceSnapshot = structuredClone(state);
+    const data = {
+        coinsEarned: 25,
+        xpEarned: 2,
+        gameState: {
+            coins: 481,
+            xp: 125,
+            level: 99,
+            totalXpEarned: 1002,
+            totalCoinsEarned: 2025,
+            goldenHourUntil: 1700000300000,
+            minigameCount: 1,
+            minigameDate: '2024-06-16',
+        },
+    };
+
+    assert.deepEqual(gameReducer(state, { type: 'APPLY_MINIGAME_REWARD', data }), {
+        ...state,
+        ...data.gameState,
+    });
+    assert.deepEqual(state, sourceSnapshot);
+});
+
+test('APPLY_MINIGAME_REWARD ignores legacy responses without authoritative game state', () => {
+    const state = createDirtyGameState();
+    assert.strictEqual(
+        gameReducer(state, { type: 'APPLY_MINIGAME_REWARD', data: { coinsEarned: 25 } }),
+        state,
+    );
 });
 
 const localUpdateCases = [

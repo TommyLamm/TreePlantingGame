@@ -408,20 +408,21 @@ test('heartbeat response includes eventExpiresAt for STORM event', () => {
   const response = harness.service.heartbeat(user);
   assert.equal(typeof response.eventExpiresAt, 'number');
   assert.equal(response.eventExpiresAt, Math.floor(harness.now() + EVENT_BALANCE.STORM_TIMEOUT_MS));
-  assert.equal(response.nextEventAt, Math.floor(harness.now()));
+  assert.equal(response.nextEventAt, undefined);
 });
 
-test('nextEventAt and eventExpiresAt are present on user state after heartbeat', () => {
-  // They are left on the user object as ephemeral fields (not persisted as required fields)
+test('nextEventAt and eventExpiresAt remain response-only after heartbeat', () => {
   const harness = createHarness();
   const user = createUser(harness, {
     activeEvent: 'STORM',
     eventSpawnedAt: harness.now(),
     lastLoginDate: '2026-03-15',
   });
-  harness.service.heartbeat(user);
-  assert.equal(typeof user.nextEventAt, 'number');
-  assert.equal(typeof user.eventExpiresAt, 'number');
+  const response = harness.service.heartbeat(user);
+  assert.equal(response.nextEventAt, undefined);
+  assert.equal(typeof response.eventExpiresAt, 'number');
+  assert.equal(Object.hasOwn(user, 'nextEventAt'), false);
+  assert.equal(Object.hasOwn(user, 'eventExpiresAt'), false);
 });
 
 test('resolveAction response includes nextEventAt and eventExpiresAt', () => {
@@ -435,7 +436,7 @@ test('resolveAction response includes nextEventAt and eventExpiresAt', () => {
     logger: { log: () => {} },
   });
   const user = createUser(h, {
-    level: 100,
+    level: 99,
     activeEvent: 'WATER',
     eventSpawnedAt: h.now() - 100,
     inventory: { xpBuff: false, autoWater: false, treeSkin: 'default', unlockedSkins: ['default'] },

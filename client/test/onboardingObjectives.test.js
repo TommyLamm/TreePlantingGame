@@ -47,17 +47,19 @@ test('getObjectiveCurrent — level_5 / prestige_ready', () => {
   assert.equal(getObjectiveCurrent({ level: 50 }, OBJECTIVE_DEFS[4]), 50);
 });
 
-test('getObjectiveCurrent — first_skin counts owned skin items', () => {
-  assert.equal(getObjectiveCurrent({ inventory: { owned: [] } }, OBJECTIVE_DEFS[2]), 0);
-  assert.equal(getObjectiveCurrent({ inventory: { owned: ['xpBuff'] } }, OBJECTIVE_DEFS[2]), 0);
+test('getObjectiveCurrent — first_skin uses the server unlockedSkins shape', () => {
+  assert.equal(getObjectiveCurrent({ inventory: { unlockedSkins: ['default'] } }, OBJECTIVE_DEFS[2]), 0);
+  assert.equal(getObjectiveCurrent({ inventory: { unlockedSkins: ['default', 'cherry'] } }, OBJECTIVE_DEFS[2]), 1);
+  assert.equal(getObjectiveCurrent({ inventory: { unlockedSkins: ['cherry', 'autumn'] } }, OBJECTIVE_DEFS[2]), 2);
+  assert.equal(getObjectiveCurrent({ inventory: { unlockedSkins: ['cherry', 'autumn', 'snow', 'golden'] } }, OBJECTIVE_DEFS[2]), 4);
   assert.equal(getObjectiveCurrent({ inventory: { owned: ['cherry'] } }, OBJECTIVE_DEFS[2]), 1);
-  assert.equal(getObjectiveCurrent({ inventory: { owned: ['cherry', 'autumn'] } }, OBJECTIVE_DEFS[2]), 2);
-  assert.equal(getObjectiveCurrent({ inventory: { owned: ['cherry', 'autumn', 'snow', 'golden'] } }, OBJECTIVE_DEFS[2]), 4);
 });
 
 test('getObjectiveCurrent — first_companion', () => {
   assert.equal(getObjectiveCurrent({ companion: null }, OBJECTIVE_DEFS[3]), 0);
+  assert.equal(getObjectiveCurrent({ companion: 'butterfly' }, OBJECTIVE_DEFS[3]), 1);
   assert.equal(getObjectiveCurrent({ companion: { id: 'fox' } }, OBJECTIVE_DEFS[3]), 1);
+  assert.equal(getObjectiveCurrent({ companion: '' }, OBJECTIVE_DEFS[3]), 0);
   assert.equal(getObjectiveCurrent({ companion: {} }, OBJECTIVE_DEFS[3]), 0);
 });
 
@@ -110,19 +112,30 @@ test('deriveObjectives — returns at most 3 objectives', () => {
   assert.ok(result.length > 0);
 });
 
-test('deriveObjectives — includes completed objectives so they are visible', () => {
-  // All objectives completed → all 5 are returned (because we include all, capped at 3)
+test('deriveObjectives — completed objectives do not block later objectives', () => {
+  const result = deriveObjectives({
+    level: 5,
+    totalEventsResolved: 10,
+    inventory: { unlockedSkins: ['default'] },
+    companion: null,
+  });
+  assert.equal(result.length, 3);
+  assert.deepEqual(result.map(objective => objective.id), [
+    'first_skin',
+    'first_companion',
+    'prestige_ready',
+  ]);
+  assert.ok(result.every(objective => objective.completed === false));
+});
+
+test('deriveObjectives — returns no active objectives when every objective is complete', () => {
   const result = deriveObjectives({
     level: 99,
     totalEventsResolved: 10,
-    inventory: { owned: ['cherry', 'autumn'] },
-    companion: { id: 'fox' },
+    inventory: { unlockedSkins: ['default', 'cherry'] },
+    companion: 'butterfly',
   });
-  // We return definitions in order but capped at 3
-  assert.equal(result.length, 3);
-  assert.ok(result[0].completed);
-  assert.ok(result[1].completed);
-  assert.ok(result[2].completed);
+  assert.deepEqual(result, []);
 });
 
 test('deriveObjectives — returns all objectives in priority order (capped at 3)', () => {
@@ -334,6 +347,7 @@ test('restoreOnboardingState — invalid payload returns initial state', () => {
   assert.deepEqual(restoreOnboardingState('bad'), createInitialOnboardingState());
   assert.deepEqual(restoreOnboardingState(123), createInitialOnboardingState());
   assert.deepEqual(restoreOnboardingState(undefined), createInitialOnboardingState());
+  assert.equal(restoreOnboardingState({ step: 'not-a-number' }).step, 0);
 });
 
 test('restoreOnboardingState — clamps out-of-range step', () => {
