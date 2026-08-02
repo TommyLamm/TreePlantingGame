@@ -1,30 +1,12 @@
 import React from 'react';
 import { MAX_LEVEL } from '../../constants';
-import { Zap, Droplets, Bug, Shovel, Scissors, SunMedium, CloudLightning } from '../Icons';
-import { ActionButton } from '../ActionButton';
+import { Zap } from '../Icons';
+import { EventInteractionPanel } from './EventInteractionPanel';
 
 export function ActionPanel({
     game, isDay, goldenHourActive, localActiveEvent,
     xpRequired, progress, t, onAction,
 }) {
-    const eventIcons = {
-        WATER: <Droplets size={18} />,
-        PEST: <Bug size={18} />,
-        FERTILIZE: <Shovel size={18} />,
-        PRUNE: <Scissors size={18} />,
-        SUNLIGHT: <SunMedium size={18} />,
-        STORM: <CloudLightning size={18} />,
-    };
-
-    const eventLabels = {
-        WATER: t('water'),
-        PEST: t('pest'),
-        FERTILIZE: t('feed'),
-        PRUNE: t('prune'),
-        SUNLIGHT: t('sunlight'),
-        STORM: t('storm'),
-    };
-
     const eventMessage = localActiveEvent === 'STORM'
         ? t('stormWarning').replace(/^⚡\uFE0F?\s*/u, '')
         : t('action');
@@ -68,17 +50,7 @@ export function ActionPanel({
                         <Zap size={14} />
                         {eventMessage}
                     </p>
-                    <div className="event-action-buttons">
-                        {Object.entries(eventIcons).map(([key, icon]) => (
-                            <ActionButton
-                                key={key}
-                                icon={icon}
-                                label={eventLabels[key]}
-                                isActive={localActiveEvent === key}
-                                onClick={() => onAction(key)}
-                            />
-                        ))}
-                    </div>
+                    <EventInteractionPanel eventType={localActiveEvent} t={t} onAction={onAction} />
                 </div>
             )}
         </section>

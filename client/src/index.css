@@ -2423,3 +2423,1103 @@ button > * {
     transform: translateX(-50%) !important;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────
+   Plan 08 visual layer: growth rings, quiet objectives, and care
+   interactions. These selectors intentionally keep the tree column
+   visually dominant instead of turning the garden into a dashboard.
+   ─────────────────────────────────────────────────────────────── */
+
+.game-main-panel {
+  display: grid;
+  width: min(1240px, 100%);
+  min-height: 0;
+  grid-template-columns: minmax(188px, 228px) minmax(0, 1fr) minmax(188px, 228px);
+  grid-template-areas: "objectives scene growth";
+  align-items: stretch;
+  gap: clamp(12px, 2vw, 28px);
+  padding-inline: clamp(12px, 3vw, 40px);
+}
+
+.game-scene-column {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  grid-area: scene;
+}
+
+.game-support-rail {
+  position: relative;
+  z-index: 20;
+  min-width: 0;
+  align-self: center;
+}
+
+.game-support-rail-left { grid-area: objectives; }
+.game-support-rail-right { grid-area: growth; }
+
+.panel-eyebrow {
+  margin: 0 0 3px;
+  color: currentColor;
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  opacity: 0.6;
+  text-transform: uppercase;
+}
+
+.objectives-rail,
+.growth-roadmap {
+  width: 100%;
+  padding: 14px;
+}
+
+.objectives-rail {
+  --panel-texture: url('/assets/ui/panel-day.png');
+  color: var(--ui-forest-ink);
+  background: rgba(243, 231, 200, 0.84);
+  border: 1px solid rgba(111, 139, 78, 0.36);
+  box-shadow: 0 12px 30px rgba(35, 48, 43, 0.16);
+}
+
+.objectives-heading,
+.growth-roadmap-heading,
+.garden-help-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.objectives-heading h2,
+.growth-roadmap-heading h2 {
+  margin: 0;
+  font-size: 1.03rem;
+  font-weight: 860;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.objectives-count,
+.growth-stage-badge {
+  display: inline-flex;
+  min-width: 34px;
+  min-height: 26px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  color: #7a4d1b;
+  background: rgba(246, 185, 74, 0.24);
+  border: 1px solid rgba(217, 139, 43, 0.32);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 860;
+  font-variant-numeric: tabular-nums;
+}
+
+.objective-list {
+  display: grid;
+  gap: 7px;
+  margin: 13px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.objective-item { min-width: 0; }
+
+.objective-button {
+  display: flex;
+  width: 100%;
+  min-height: 58px;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(111, 139, 78, 0.16);
+  border-radius: 10px;
+  text-align: left;
+  transition: var(--ui-transition-color), var(--ui-transition-motion);
+}
+
+button.objective-button:hover {
+  background: rgba(255, 255, 255, 0.74);
+  border-color: rgba(217, 139, 43, 0.36);
+  transform: translateX(2px);
+}
+
+.objective-button-static { cursor: default; }
+
+.objective-icon {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  place-items: center;
+  color: var(--ui-amber);
+  background: rgba(217, 139, 43, 0.13);
+  border-radius: 8px;
+}
+
+.objective-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.objective-title,
+.objective-description,
+.objective-count {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.objective-title {
+  font-size: 0.75rem;
+  font-weight: 860;
+}
+
+.objective-description {
+  color: currentColor;
+  font-size: 0.65rem;
+  opacity: 0.68;
+}
+
+.objective-progress {
+  display: block;
+  height: 5px;
+  margin-top: 4px;
+  overflow: hidden;
+  background: rgba(36, 70, 52, 0.12);
+  border-radius: 999px;
+}
+
+.objective-progress span {
+  display: block;
+  height: 100%;
+  background: var(--ui-amber);
+  border-radius: inherit;
+  transition: width 420ms ease-out;
+}
+
+.objective-count {
+  color: currentColor;
+  font-size: 0.59rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.54;
+}
+
+.objectives-empty {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 14px 8px 7px;
+  color: var(--ui-forest-ink);
+  text-align: center;
+}
+
+.objectives-empty-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: var(--ui-amber);
+  background: rgba(246, 185, 74, 0.18);
+  border-radius: 50%;
+}
+
+.objectives-empty p {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.objectives-empty span:last-child {
+  max-width: 18ch;
+  font-size: 0.64rem;
+  line-height: 1.35;
+  opacity: 0.62;
+}
+
+.growth-roadmap {
+  --panel-texture: url('/assets/ui/panel-day.png');
+  color: var(--ui-forest-ink);
+  background: rgba(221, 243, 228, 0.79);
+  border: 1px solid rgba(47, 107, 69, 0.28);
+  box-shadow: 0 12px 30px rgba(35, 48, 43, 0.14);
+}
+
+.growth-ring-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 15px 0 12px;
+}
+
+.growth-ring-emblem {
+  position: relative;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  place-items: center;
+}
+
+.growth-ring {
+  position: absolute;
+  border: 1px solid rgba(217, 139, 43, 0.65);
+  border-radius: 50%;
+}
+
+.growth-ring-outer { inset: 0; opacity: 0.4; }
+.growth-ring-middle { inset: 8px; opacity: 0.62; }
+.growth-ring-inner {
+  display: grid;
+  inset: 17px;
+  place-items: center;
+  color: var(--ui-amber);
+  background: rgba(246, 185, 74, 0.18);
+  border-color: var(--ui-amber);
+}
+
+.growth-ring-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.growth-ring-copy strong {
+  overflow: hidden;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.growth-ring-copy > span {
+  font-size: 0.65rem;
+  opacity: 0.68;
+}
+
+.growth-next-line {
+  color: var(--ui-amber);
+  font-weight: 800;
+}
+
+.growth-milestone-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 3px 13px;
+}
+
+.growth-milestone-track::before {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  height: 1px;
+  content: "";
+  background: rgba(36, 70, 52, 0.2);
+}
+
+.growth-milestone {
+  position: relative;
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  color: rgba(36, 70, 52, 0.34);
+  background: #d7e9d7;
+  border: 2px solid rgba(36, 70, 52, 0.15);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.growth-milestone.is-reached {
+  color: var(--ui-amber);
+  background: #fff5d6;
+  border-color: rgba(217, 139, 43, 0.55);
+}
+
+.growth-milestone.is-current {
+  box-shadow: 0 0 0 4px rgba(217, 139, 43, 0.14);
+  transform: scale(1.13);
+}
+
+.growth-micro-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(36, 70, 52, 0.14);
+}
+
+.growth-micro-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.63rem;
+  font-weight: 800;
+}
+
+.growth-micro-ticks {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.growth-micro-ticks span {
+  width: 7px;
+  height: 7px;
+  background: rgba(36, 70, 52, 0.16);
+  border-radius: 50%;
+}
+
+.growth-micro-ticks span.is-lit {
+  background: var(--ui-amber);
+  box-shadow: 0 0 0 2px rgba(217, 139, 43, 0.12);
+}
+
+.growth-tier-copy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 7px;
+  margin-top: 9px;
+}
+
+.growth-tier-copy span {
+  color: var(--ui-forest-ink);
+  font-size: 0.59rem;
+  font-weight: 720;
+  opacity: 0.7;
+}
+
+.growth-roadmap-season {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--ui-forest-ink);
+  font-size: 0.62rem;
+  opacity: 0.72;
+}
+
+.growth-roadmap-season-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--color-blossom-pink);
+  border-radius: 50%;
+}
+
+.growth-roadmap-season[data-season="summer"] .growth-roadmap-season-dot { background: var(--color-canopy-green); }
+.growth-roadmap-season[data-season="autumn"] .growth-roadmap-season-dot { background: var(--color-amber-sun); }
+.growth-roadmap-season[data-season="winter"] .growth-roadmap-season-dot { background: #b9d9ed; }
+
+.weather-chip {
+  min-width: min(246px, 52vw);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding-block: 8px;
+}
+
+.weather-chip-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.weather-chip-detail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: currentColor;
+  font-size: 0.6rem;
+  line-height: 1.1;
+  opacity: 0.66;
+}
+
+.weather-chip-detail span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weather-chip-detail strong {
+  flex: 0 0 auto;
+  color: var(--ui-amber);
+  font-size: 0.58rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.event-interaction {
+  display: grid;
+  gap: 8px;
+}
+
+.event-interaction-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.event-interaction-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  color: var(--ui-amber);
+  background: rgba(217, 139, 43, 0.12);
+  border-radius: 8px;
+}
+
+.event-interaction-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.event-interaction-copy strong {
+  overflow: hidden;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-interaction-copy span {
+  overflow: hidden;
+  font-size: 0.62rem;
+  opacity: 0.64;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-window-badge {
+  margin-left: auto;
+  padding: 4px 7px;
+  color: var(--ui-amber);
+  background: rgba(246, 185, 74, 0.14);
+  border: 1px solid rgba(217, 139, 43, 0.28);
+  border-radius: 999px;
+  font-size: 0.57rem;
+  font-weight: 850;
+}
+
+.event-interaction-progress {
+  height: 6px;
+  overflow: hidden;
+  background: rgba(36, 70, 52, 0.14);
+  border-radius: 999px;
+}
+
+.status-panel-night .event-interaction-progress { background: rgba(243, 231, 200, 0.17); }
+
+.event-interaction-progress span {
+  display: block;
+  height: 100%;
+  background: var(--ui-moss);
+  border-radius: inherit;
+  transition: width 120ms linear;
+}
+
+.event-interaction-timing .event-interaction-progress span { background: var(--color-storm-violet); }
+.event-interaction-completed .event-interaction-progress span { background: var(--color-canopy-green); }
+.event-interaction-failed .event-interaction-progress span { background: #b86f50; }
+
+.event-interaction-hint {
+  margin: 0;
+  font-size: 0.65rem;
+  line-height: 1.3;
+  opacity: 0.72;
+}
+
+.event-sequence-steps {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.event-sequence-steps span {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  color: currentColor;
+  background: rgba(36, 70, 52, 0.08);
+  border: 1px solid rgba(36, 70, 52, 0.16);
+  border-radius: 50%;
+  font-size: 0.59rem;
+  font-weight: 850;
+}
+
+.event-sequence-steps span.is-complete {
+  color: var(--ui-parchment);
+  background: var(--ui-moss);
+  border-color: var(--ui-moss);
+}
+
+.event-sequence-steps span.is-current {
+  color: var(--ui-amber);
+  border-color: var(--ui-amber);
+}
+
+.event-sequence-steps small {
+  margin-left: 4px;
+  font-size: 0.6rem;
+  opacity: 0.62;
+}
+
+.event-retry-button {
+  justify-self: start;
+  min-height: 36px;
+  padding: 0 12px;
+  color: var(--ui-forest-ink);
+  background: rgba(246, 185, 74, 0.18);
+  border: 1px solid rgba(217, 139, 43, 0.32);
+  border-radius: 9px;
+  font-size: 0.67rem;
+  font-weight: 820;
+}
+
+.action-btn {
+  touch-action: none;
+  user-select: none;
+}
+
+.onboarding-backdrop,
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(13, 31, 28, 0.58);
+  backdrop-filter: blur(10px);
+}
+
+.onboarding-overlay {
+  position: relative;
+  width: min(450px, 100%);
+  overflow: hidden;
+  padding: 28px;
+  color: var(--ui-forest-ink);
+  background: #f8f5e9;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 22px;
+  box-shadow: 0 24px 80px rgba(9, 32, 26, 0.34);
+}
+
+.onboarding-overlay::after {
+  position: absolute;
+  right: -54px;
+  bottom: -88px;
+  width: 220px;
+  height: 220px;
+  content: "";
+  border: 1px solid rgba(217, 139, 43, 0.24);
+  border-radius: 50%;
+  box-shadow: 0 0 0 18px rgba(217, 139, 43, 0.06), 0 0 0 38px rgba(217, 139, 43, 0.04);
+  pointer-events: none;
+}
+
+.onboarding-ring-art {
+  position: absolute;
+  right: 24px;
+  top: 22px;
+  width: 52px;
+  height: 52px;
+}
+
+.onboarding-ring-art span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(217, 139, 43, 0.5);
+  border-radius: 50%;
+}
+
+.onboarding-ring-art span:nth-child(2) { inset: 8px; }
+.onboarding-ring-art span:nth-child(3) {
+  display: grid;
+  inset: 18px;
+  place-items: center;
+  color: var(--ui-amber);
+  background: rgba(246, 185, 74, 0.14);
+}
+
+.onboarding-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: var(--ui-forest-ink);
+  background: rgba(36, 70, 52, 0.06);
+  border: 1px solid rgba(36, 70, 52, 0.12);
+  border-radius: 50%;
+}
+
+.onboarding-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 330px;
+  margin-bottom: 22px;
+}
+
+.onboarding-copy h2 {
+  margin: 6px 0 10px;
+  font-size: clamp(1.55rem, 4vw, 2rem);
+  font-weight: 880;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.onboarding-copy p:last-child {
+  margin: 0;
+  color: rgba(36, 70, 52, 0.7);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.onboarding-progress,
+.garden-help-progress {
+  height: 7px;
+  overflow: hidden;
+  background: rgba(36, 70, 52, 0.12);
+  border-radius: 999px;
+}
+
+.onboarding-progress span,
+.garden-help-progress span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--ui-moss), var(--ui-amber));
+  border-radius: inherit;
+  transition: width 360ms ease-out;
+}
+
+.onboarding-step-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  color: rgba(36, 70, 52, 0.56);
+  font-size: 0.63rem;
+  font-weight: 760;
+}
+
+.onboarding-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.onboarding-actions-right {
+  display: flex;
+  gap: 7px;
+}
+
+.button-primary,
+.button-secondary,
+.button-quiet {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 830;
+}
+
+.button-primary {
+  color: #fff9ec;
+  background: var(--ui-forest-ink);
+  border: 1px solid var(--ui-forest-ink);
+  box-shadow: 0 5px 12px rgba(36, 70, 52, 0.2);
+}
+
+.button-secondary {
+  color: var(--ui-forest-ink);
+  background: rgba(36, 70, 52, 0.06);
+  border: 1px solid rgba(36, 70, 52, 0.16);
+}
+
+.button-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.button-quiet {
+  color: rgba(36, 70, 52, 0.62);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.objective-button:focus-visible,
+.event-retry-button:focus-visible,
+.onboarding-close:focus-visible,
+.button-primary:focus-visible,
+.button-secondary:focus-visible,
+.button-quiet:focus-visible,
+.garden-help-button:focus-visible,
+.garden-gift-button:focus-visible {
+  outline: 3px solid rgba(217, 139, 43, 0.72);
+  outline-offset: 2px;
+}
+
+.onboarding-back-arrow { font-size: 1rem; line-height: 1; }
+
+.garden-visit-modal {
+  width: min(470px, 100%);
+  max-height: min(720px, 92vh);
+  overflow: hidden auto;
+  color: var(--ui-forest-ink);
+  background: #f8f5e9;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 22px;
+  box-shadow: 0 24px 80px rgba(9, 32, 26, 0.34);
+}
+
+.garden-visit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  color: #f6f4e8;
+  background: linear-gradient(120deg, #244634, #367556);
+}
+
+.garden-visit-title-wrap {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.garden-visit-title-wrap h2 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.garden-visit-title-mark,
+.garden-visit-generation {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.garden-visit-title-mark {
+  width: 29px;
+  height: 29px;
+  color: #f6c76f;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+}
+
+.garden-visit-generation {
+  min-height: 27px;
+  padding: 0 8px;
+  color: #fce3a4;
+  background: rgba(13, 31, 28, 0.2);
+  border-radius: 999px;
+  font-size: 0.63rem;
+  font-weight: 820;
+}
+
+.garden-visit-body { padding: 14px; }
+
+.garden-visit-tree {
+  position: relative;
+  height: 190px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #d9ecdf, #f6efd3);
+  border: 1px solid rgba(111, 139, 78, 0.2);
+  border-radius: 14px;
+}
+
+.garden-visit-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin: 12px 0;
+}
+
+.garden-visit-badges span {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  color: var(--ui-forest-ink);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(111, 139, 78, 0.18);
+  border-radius: 999px;
+  font-size: 0.67rem;
+  font-weight: 800;
+}
+
+.garden-help-card {
+  padding: 12px;
+  background: rgba(221, 243, 228, 0.58);
+  border: 1px solid rgba(47, 107, 69, 0.18);
+  border-radius: 13px;
+}
+
+.garden-help-heading strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.77rem;
+}
+
+.garden-help-heading > span {
+  color: var(--ui-amber);
+  font-size: 0.73rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.garden-help-progress { margin-top: 9px; }
+
+.garden-help-reward,
+.garden-help-error {
+  margin: 8px 0 0;
+  font-size: 0.67rem;
+  line-height: 1.35;
+}
+
+.garden-help-reward { color: var(--ui-forest-ink); }
+.garden-help-reward span { color: var(--ui-amber); font-weight: 850; }
+.garden-help-error { color: #9b493a; }
+
+.garden-help-button,
+.garden-gift-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 830;
+}
+
+.garden-help-button {
+  color: #fff9ec;
+  background: var(--ui-forest-ink);
+  border: 1px solid var(--ui-forest-ink);
+}
+
+.garden-help-button:disabled {
+  color: rgba(36, 70, 52, 0.48);
+  background: rgba(36, 70, 52, 0.08);
+  border-color: rgba(36, 70, 52, 0.12);
+  cursor: not-allowed;
+}
+
+.garden-gift-area { margin-top: 9px; }
+
+.garden-gift-button {
+  color: #7a4d1b;
+  background: rgba(246, 185, 74, 0.16);
+  border: 1px solid rgba(217, 139, 43, 0.3);
+}
+
+.garden-gift-button span { opacity: 0.66; }
+.garden-visit-footer { display: flex; justify-content: flex-end; padding: 0 14px 14px; }
+
+.mini-game-card-art {
+  width: 31px;
+  height: 31px;
+  object-fit: contain;
+}
+
+.mini-game-empty-mark,
+.mini-game-result-mark,
+.mini-game-water-mark {
+  display: grid;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 14px;
+  place-items: center;
+  color: var(--ui-forest-ink);
+  background: rgba(221, 243, 228, 0.68);
+  border: 1px solid rgba(47, 107, 69, 0.16);
+  border-radius: 50%;
+}
+
+.mini-game-result-mark { color: var(--ui-amber); background: rgba(246, 185, 74, 0.16); }
+.mini-game-water-mark { color: #2b76ab; background: rgba(147, 197, 253, 0.22); }
+
+.mini-game-reward-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 auto 20px;
+  max-width: 300px;
+}
+
+.mini-game-reward-grid span {
+  display: inline-flex;
+  min-height: 35px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 7px;
+  color: #566557;
+  background: #f2f7ee;
+  border: 1px solid #dce9d8;
+  border-radius: 9px;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.mini-game-reward-grid .mini-game-games-left,
+.mini-game-reward-grid .mini-game-bonus {
+  grid-column: 1 / -1;
+  color: #7a4d1b;
+  background: #fff7dc;
+  border-color: #f1d994;
+}
+
+@media (max-width: 1099px) {
+  .game-main-panel {
+    display: block;
+    padding-inline: 10px;
+  }
+
+  .game-scene-column { height: calc(100vh - 14.5rem); }
+
+  .game-support-rail {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    align-self: initial;
+  }
+
+  .game-support-rail-left { top: 8.8rem; }
+  .game-support-rail-right { top: 17.5rem; }
+  .game-shell:has(.event-actions) .game-scene-column { height: calc(100vh - 21rem); }
+
+  .objectives-rail,
+  .growth-roadmap {
+    padding: 9px 11px;
+    border-radius: 13px;
+  }
+
+  .objectives-heading h2,
+  .growth-roadmap-heading h2 { font-size: 0.83rem; }
+
+  .objective-list {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .objective-list::-webkit-scrollbar { display: none; }
+  .objective-item { min-width: 196px; flex: 1 0 196px; }
+  .objective-button { min-height: 52px; }
+  .objective-description { font-size: 0.61rem; }
+
+  .growth-roadmap-heading { align-items: center; }
+  .growth-ring-summary { margin: 7px 0 5px; }
+  .growth-ring-emblem { width: 36px; height: 36px; flex-basis: 36px; }
+  .growth-ring-inner { inset: 12px; }
+  .growth-ring-middle { inset: 5px; }
+  .growth-ring-copy strong { font-size: 0.7rem; }
+  .growth-next-line { display: inline; margin-left: 4px; }
+  .growth-milestone-track { margin-bottom: 6px; }
+  .growth-micro-row { padding-top: 6px; }
+  .growth-tier-copy,
+  .growth-roadmap-season { display: none; }
+  .growth-milestone-track,
+  .growth-micro-row { display: none; }
+
+  .game-status-panel:has(.event-actions) { padding: 10px; }
+  .event-interaction { gap: 6px; }
+  .event-interaction .action-btn { min-height: 48px; padding-block: 5px; }
+  .event-interaction .action-btn-label { font-size: 0.62rem; }
+}
+
+@media (max-width: 640px) {
+  .game-main-panel { padding-top: 7.5rem !important; }
+  .game-scene-column { height: calc(100vh - 14.5rem); }
+  .game-support-rail-left { top: 8.65rem; }
+  .game-support-rail-right { top: 14.8rem; }
+
+  .objectives-rail { padding: 7px 9px; }
+  .objectives-heading h2,
+  .growth-roadmap-heading h2 { font-size: 0.77rem; }
+  .objective-list { margin-top: 5px; }
+  .objective-item { min-width: 178px; flex-basis: 178px; }
+  .objective-button { min-height: 44px; padding: 6px; }
+  .objective-description { display: none; }
+  .objective-progress { margin-top: 2px; }
+  .growth-roadmap { padding: 7px 9px; }
+  .growth-milestone-track,
+  .growth-micro-row { display: none; }
+  .growth-ring-summary { margin: 3px 0 0; }
+  .growth-roadmap-season { display: none; }
+  .event-interaction-copy span,
+  .event-interaction-hint { display: none; }
+  .event-interaction .action-btn { min-height: 44px; }
+  .event-interaction .action-btn-label { font-size: 0.58rem; }
+
+  .weather-chip { min-width: 0; max-width: 58vw; }
+  .weather-chip-detail { font-size: 0.56rem; }
+  .weather-chip-detail strong { display: none; }
+
+  .onboarding-overlay { padding: 24px 20px 20px; border-radius: 18px; }
+  .onboarding-copy { max-width: 255px; }
+  .onboarding-copy h2 { font-size: 1.48rem; }
+  .onboarding-copy p:last-child { font-size: 0.82rem; }
+  .onboarding-actions { align-items: stretch; flex-direction: column; }
+  .onboarding-actions-right { justify-content: flex-end; }
+  .button-primary,
+  .button-secondary,
+  .button-quiet { min-height: 44px; }
+
+  .garden-visit-modal { max-height: calc(100vh - 24px); border-radius: 18px; }
+  .garden-visit-tree { height: 155px; }
+
+  .mini-game-reward-grid { max-width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .objective-progress span,
+  .growth-milestone.is-current,
+  .event-interaction-progress span,
+  .onboarding-progress span,
+  .garden-help-progress span {
+    transition: none !important;
+  }
+
+  .growth-milestone.is-current { transform: none; }
+}
