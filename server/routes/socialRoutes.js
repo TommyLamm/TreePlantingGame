@@ -9,6 +9,12 @@ function createSocialRoutes({ socialService }) {
     res.json(await socialService.getGarden(req.params.username));
   }));
 
+  router.post('/garden/help', asyncHandler(async (req, res) => {
+    const helperUsername = requireValidUsername(req.body.helperUsername);
+    const ownerUsername = requireValidUsername(req.body.ownerUsername);
+    res.json(await socialService.helpGarden(helperUsername, ownerUsername));
+  }));
+
   router.post('/gift', asyncHandler(async (req, res) => {
     const fromUsername = requireValidUsername(req.body.fromUsername);
     const toUsername = requireValidUsername(req.body.toUsername);
