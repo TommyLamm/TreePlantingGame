@@ -232,7 +232,7 @@ export function EventInteractionPanel({ eventType, t, onAction }) {
             <div className="event-interaction-heading">
                 <span className="event-interaction-icon"><EventIcon size={18} /></span>
                 <span className="event-interaction-copy">
-                    <strong>{statusLabel}</strong>
+                    <strong role="status" aria-live="polite" aria-atomic="true">{statusLabel}</strong>
                     <span>{t(ARCHETYPE_KEYS[archetype])}</span>
                 </span>
                 {archetype === ARCHETYPE_TIMING && (

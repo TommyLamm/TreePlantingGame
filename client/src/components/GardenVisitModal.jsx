@@ -91,7 +91,7 @@ export function GardenVisitModal({ visitData, currentUser, onGift, giftError, on
 
                 <div className="garden-visit-body">
                     <div className="garden-visit-tree">
-                        <TreeVisual level={visitData.level} eventType={null} skin={visitData.treeSkin} isStatic={true} />
+                        <TreeVisual level={visitData.level} eventType={null} skin={visitData.treeSkin} isStatic={true} t={t} />
                     </div>
 
                     <div className="garden-visit-badges">

@@ -2424,6 +2424,13 @@ button > * {
   }
 }
 
+@media (max-width: 640px) {
+  .game-modals-layer button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 /* ───────────────────────────────────────────────────────────────
    Plan 08 visual layer: growth rings, quiet objectives, and care
    interactions. These selectors intentionally keep the tree column

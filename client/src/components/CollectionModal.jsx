@@ -77,7 +77,7 @@ export const CollectionModal = ({ currentLevel, achievements = [], onClose, t })
                                         <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden rounded-xl">
                                             {isUnlocked ? (
                                                 <div className="w-full h-full transform scale-90">
-                                                    <TreeVisual level={ms.level} eventType={null} isStatic={true} />
+                                                    <TreeVisual level={ms.level} eventType={null} isStatic={true} t={t} />
                                                 </div>
                                             ) : (
                                                 <div className="text-gray-300">

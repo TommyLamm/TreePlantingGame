@@ -1,0 +1,72 @@
+{
+  "modalFocus": [
+    {
+      "name": "store",
+      "focusableCount": 1,
+      "escape": true,
+      "returnFocus": true
+    },
+    {
+      "name": "collection",
+      "focusableCount": 3,
+      "escape": true,
+      "returnFocus": true
+    },
+    {
+      "name": "companions",
+      "focusableCount": 2,
+      "escape": true,
+      "returnFocus": true
+    },
+    {
+      "name": "daily reward",
+      "focusableCount": 2,
+      "escape": true,
+      "returnFocus": true
+    },
+    {
+      "name": "profile",
+      "focusableCount": 7,
+      "escape": true,
+      "returnFocus": true
+    },
+    {
+      "name": "leaderboard",
+      "focusableCount": 2,
+      "escape": true,
+      "returnFocus": true
+    },
+    {
+      "name": "prestige",
+      "focusableCount": 1,
+      "escape": true,
+      "returnFocus": true
+    },
+    {
+      "name": "mini-games",
+      "focusableCount": 4,
+      "escape": true,
+      "returnFocus": true
+    },
+    {
+      "name": "statistics",
+      "focusableCount": 1,
+      "escape": true,
+      "returnFocus": true
+    }
+  ],
+  "gameplay": {
+    "onboarding": true,
+    "firstEvent": "active-event",
+    "reward": true,
+    "growthMilestone": 5,
+    "resolvedEvents": 4
+  },
+  "social": {
+    "helper": "FinalA",
+    "owner": "FinalB",
+    "ownerHeartbeatObserved": true,
+    "helpCount": 1
+  },
+  "consoleErrors": []
+}

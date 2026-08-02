@@ -37,6 +37,7 @@ export function GameHeader({
 }) {
     const [isMoreOpen, setIsMoreOpen] = useState(false);
     const toolRegionRef = useRef(null);
+    const moreButtonRef = useRef(null);
 
     useEffect(() => {
         if (!isMoreOpen) return undefined;
@@ -58,19 +59,20 @@ export function GameHeader({
 
     const runMenuAction = (action) => {
         setIsMoreOpen(false);
-        action();
+        moreButtonRef.current?.focus({ preventScroll: true });
+        action(moreButtonRef.current);
     };
 
     return (
-        <header className="game-hud" aria-label="Game status and tools">
+        <header className="game-hud" aria-label={t('gameStatusTools')}>
             <div className="hud-environment">
                 <WeatherDisplay weather={game.weather} season={game.season} isDay={isDay} t={t} />
             </div>
 
-            <div className="hud-resources" aria-label="Player resources">
+            <div className="hud-resources" aria-label={t('playerResources')}>
                 <div
                     className={`connection-badge connection-${serverStatus}`}
-                    title={serverStatus === 'connected' ? 'Online' : 'Offline'}
+                    title={serverStatus === 'connected' ? t('online') : t('offline')}
                 >
                     {serverStatus === 'connected' ? <CloudCheck size={18} /> : <CloudOff size={18} />}
                 </div>
@@ -120,6 +122,7 @@ export function GameHeader({
                         {game.dailyRewardAvailable && <span className="hud-notification-dot" aria-hidden="true" />}
                     </button>
                     <button
+                        ref={moreButtonRef}
                         type="button"
                         onClick={() => setIsMoreOpen(open => !open)}
                         className={`hud-tool-button hud-more-button ${isMoreOpen ? 'hud-tool-active' : ''}`}
@@ -138,7 +141,7 @@ export function GameHeader({
                         role="menu"
                         aria-label={t('more')}
                     >
-                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(() => onOpenModal('profile'))}>
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(trigger => onOpenModal('profile', trigger))}>
                             {game.profileData?.avatar
                                 ? <img src={game.profileData.avatar} alt="" className="hud-profile-avatar" />
                                 : <User size={18} />}
@@ -148,15 +151,15 @@ export function GameHeader({
                             <Trophy size={18} />
                             <span>{t('leaderboard')}</span>
                         </button>
-                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(() => onOpenModal('prestige'))}>
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(trigger => onOpenModal('prestige', trigger))}>
                             <Recycle size={18} />
                             <span>{t('prestige')}</span>
                         </button>
-                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(() => onOpenModal('miniGames'))}>
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(trigger => onOpenModal('miniGames', trigger))}>
                             <Gamepad size={18} />
                             <span>{t('miniGames')}</span>
                         </button>
-                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(() => onOpenModal('stats'))}>
+                        <button type="button" role="menuitem" className="hud-menu-item" onClick={() => runMenuAction(trigger => onOpenModal('stats', trigger))}>
                             <StatsIcon size={18} />
                             <span>{t('stats')}</span>
                         </button>

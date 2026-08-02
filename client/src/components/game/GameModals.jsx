@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { CollectionModal } from '../CollectionModal';
 import { StoreModal } from '../StoreModal';
 import { ProfileModal } from '../ProfileModal';
@@ -10,9 +10,12 @@ import { StatsModal } from '../StatsModal';
 import { MiniGameModal } from '../MiniGameModal';
 import { CompanionSelect } from '../CompanionSelect';
 import { GardenVisitModal } from '../GardenVisitModal';
+import { useModalFocus } from '../../hooks/useModalFocus';
 
 export function GameModals({
     visibility,
+    focusSuspended,
+    returnFocusRef,
     game,
     currentUser,
     t,
@@ -35,8 +38,21 @@ export function GameModals({
     onBuyCompanion,
     onEquipCompanion,
 }) {
+    const layerRef = useRef(null);
+    const activeModal = Object.keys(visibility || {}).filter(name => visibility[name]).at(-1) || null;
+    const focusTarget = focusSuspended ? null : activeModal;
+    const closeActiveModal = useCallback(() => {
+        if (!activeModal) return;
+        if (activeModal === 'offlineEarnings') onOfflineClose();
+        else onClose(activeModal);
+    }, [activeModal, onClose, onOfflineClose]);
+
+    useModalFocus({ activeKey: focusTarget, onClose: closeActiveModal, rootRef: layerRef, returnFocusRef });
+
+    if (!activeModal) return null;
+
     return (
-        <>
+        <div className="game-modals-layer" ref={layerRef}>
             {visibility.collection && <CollectionModal currentLevel={game.level} achievements={game.achievements} onClose={() => onClose('collection')} t={t} />}
             {visibility.store && <StoreModal userCoins={game.coins} inventory={game.inventory} onBuy={onBuy} onEquip={onEquip} onClose={() => onClose('store')} t={t} />}
             {visibility.profile && (
@@ -143,6 +159,6 @@ export function GameModals({
                     t={t}
                 />
             )}
-        </>
+        </div>
     );
 }

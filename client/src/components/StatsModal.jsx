@@ -29,7 +29,7 @@ export function StatsModal({ stats, onClose, t }) {
         { icon: '✅', label: t('statEventsResolved'), value: formatNumber(stats.totalEventsResolved), color: 'emerald' },
         { icon: '🤝', label: t('statInteractions'), value: formatNumber(stats.interactionCount), color: 'cyan' },
         { icon: '🔥', label: t('statMaxCombo'), value: stats.maxCombo || 0, color: 'orange' },
-        { icon: '📅', label: t('statMaxStreak'), value: `${stats.maxLoginStreak || 0} days`, color: 'rose' },
+        { icon: '📅', label: t('statMaxStreak'), value: t('daysValue', stats.maxLoginStreak || 0), color: 'rose' },
         { icon: '⏱️', label: t('statPlayTime'), value: formatTime(stats.playTimeMs), color: 'indigo' },
         { icon: '📆', label: t('statJoinDate'), value: formatDate(stats.joinDate), color: 'slate' },
         { icon: '🏆', label: t('statAchievements'), value: `${(stats.achievements || []).length}`, color: 'amber' },

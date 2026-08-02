@@ -72,7 +72,7 @@ export function CompanionSelect({ unlockedCompanions = [], equippedCompanion, us
                                     {!isOwned && !levelLocked && !prestigeLocked && (
                                         <div className="mt-1 flex items-center gap-1 text-xs font-bold text-amber-500">
                                             {!isFree && <><Coins size={12} /><span>{comp.price}</span></>}
-                                            {isFree && <span className="text-green-500">FREE</span>}
+                                            {isFree && <span className="text-green-500">{t('free')}</span>}
                                         </div>
                                     )}
                                 </div>

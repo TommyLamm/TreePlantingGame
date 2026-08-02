@@ -1,22 +1,22 @@
 import React from 'react';
 
 const companionConfig = {
-    butterfly: { className: 'companion-butterfly', label: 'Butterfly companion' },
-    squirrel: { className: 'companion-squirrel', label: 'Squirrel companion' },
-    bird: { className: 'companion-bird', label: 'Bird companion' },
-    owl: { className: 'companion-owl', label: 'Owl companion' },
-    deer: { className: 'companion-deer', label: 'Deer companion' },
-    phoenix: { className: 'companion-phoenix', label: 'Phoenix companion' },
+    butterfly: { className: 'companion-butterfly', nameKey: 'companionButterfly' },
+    squirrel: { className: 'companion-squirrel', nameKey: 'companionSquirrel' },
+    bird: { className: 'companion-bird', nameKey: 'companionBird' },
+    owl: { className: 'companion-owl', nameKey: 'companionOwl' },
+    deer: { className: 'companion-deer', nameKey: 'companionDeer' },
+    phoenix: { className: 'companion-phoenix', nameKey: 'companionPhoenix' },
 };
 
-export const CompanionSprite = ({ companion, isDay = true }) => {
+export const CompanionSprite = ({ companion, isDay = true, t }) => {
     if (!companion) return null;
 
     const assetId = companionConfig[companion] ? companion : 'butterfly';
     const config = companionConfig[assetId];
 
     return (
-        <div className={`scene-companion-layer companion-sprite ${config.className} ${isDay ? 'companion-day' : 'companion-night'}`} aria-label={config.label}>
+        <div className={`scene-companion-layer companion-sprite ${config.className} ${isDay ? 'companion-day' : 'companion-night'}`} aria-label={t('companionLabel', t(config.nameKey))}>
             <div className="companion-glow" />
             <img
                 className="companion-art"

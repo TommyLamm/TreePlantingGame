@@ -35,8 +35,17 @@ export function LeaderboardModal({ data, currentUser, onVisitGarden, onClose, t 
                                         ? 'bg-purple-50 border-2 border-purple-200 shadow-sm'
                                         : 'bg-white border border-gray-100 hover:border-gray-200'
                                 }`}
+                                role={user.username === currentUser ? undefined : 'button'}
+                                tabIndex={user.username === currentUser ? undefined : 0}
                                 onClick={() => {
                                     if (user.username !== currentUser && onVisitGarden) {
+                                        audio.playClick();
+                                        onVisitGarden(user.username);
+                                    }
+                                }}
+                                onKeyDown={(event) => {
+                                    if (user.username !== currentUser && onVisitGarden && (event.key === 'Enter' || event.key === ' ')) {
+                                        event.preventDefault();
                                         audio.playClick();
                                         onVisitGarden(user.username);
                                     }

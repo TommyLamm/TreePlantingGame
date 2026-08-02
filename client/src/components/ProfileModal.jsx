@@ -86,10 +86,19 @@ export function ProfileModal({
                     <div className="flex flex-col items-center gap-3">
                         <div
                             className="relative w-24 h-24 rounded-full bg-gray-200 border-4 border-white shadow-lg overflow-hidden cursor-pointer group flex items-center justify-center text-gray-400"
+                            role="button"
+                            tabIndex="0"
+                            aria-label={t('uploadAvatar')}
                             onClick={() => fileInputRef.current?.click()}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    fileInputRef.current?.click();
+                                }
+                            }}
                         >
                             {avatar ? (
-                                <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                                <img src={avatar} alt={t('avatarAlt')} className="w-full h-full object-cover" />
                             ) : (
                                 <User size={40} />
                             )}

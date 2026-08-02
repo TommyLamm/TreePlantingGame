@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Leaf, X } from '../Icons';
 import { ONBOARDING_STEPS } from '../../features/objectives/index.js';
+import { useModalFocus } from '../../hooks/useModalFocus';
 
 export function OnboardingOverlay({ state, t, onBack, onNext, onDismiss, onComplete }) {
+    const dialogRef = useRef(null);
+    useModalFocus({ activeKey: state?.active ? 'onboarding' : null, onClose: onDismiss, dialogRef });
+
     if (!state?.active) return null;
 
     const step = ONBOARDING_STEPS[state.step] || ONBOARDING_STEPS[0];
@@ -11,7 +15,7 @@ export function OnboardingOverlay({ state, t, onBack, onNext, onDismiss, onCompl
 
     return (
         <div className="onboarding-backdrop" role="presentation">
-            <section className="onboarding-overlay" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+            <section ref={dialogRef} className="onboarding-overlay" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" tabIndex="-1">
                 <div className="onboarding-ring-art" aria-hidden="true">
                     <span />
                     <span />

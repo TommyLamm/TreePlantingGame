@@ -33,6 +33,7 @@ test('motion and compact HUD have explicit accessibility fallbacks', async () =>
   const css = await readFile(cssPath, 'utf8');
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
   assert.match(css, /@media\s*\(max-width:\s*640px\)/);
+  assert.match(css, /\.game-modals-layer button\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
   assert.match(css, /env\(safe-area-inset-bottom\)/);
 });
 

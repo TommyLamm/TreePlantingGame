@@ -106,11 +106,23 @@ test('game stage and action panel render through their prop boundaries', async (
       weather: 'rainy',
       companion: 'butterfly',
     };
+    const stageTranslations = {
+      burstWater: 'Splash!',
+      companionButterfly: 'Butterfly',
+      companionLabel: '{0} companion',
+      shakeTree: 'Shake tree',
+      treeLevel: 'Tree level {0}',
+    };
+    const stageT = (key, ...args) => args.reduce(
+      (value, arg, index) => value.replace(`{${index}}`, arg),
+      stageTranslations[key] || key,
+    );
     const stageMarkup = renderToStaticMarkup(React.createElement(GameStage, {
       actionBursts: [{ id: 'burst-1', type: 'WATER', x: '50%', y: '40%' }],
       shakeAnim: true,
       game,
       isDay: true,
+      t: stageT,
       onShakeTree() {},
     }));
 
@@ -124,6 +136,8 @@ test('game stage and action panel render through their prop boundaries', async (
     assert.match(stageMarkup, /scene-companion-layer/);
     assert.doesNotMatch(stageMarkup, /💧|🐛|🍂|✂️|✨|⚡/);
     assert.match(stageMarkup, /action-burst-label/);
+    assert.match(stageMarkup, /role="button"/);
+    assert.match(stageMarkup, /tabindex="0"/);
 
     const panelMarkup = renderToStaticMarkup(React.createElement(ActionPanel, {
       game,

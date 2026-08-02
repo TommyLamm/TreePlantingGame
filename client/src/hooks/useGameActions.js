@@ -96,7 +96,7 @@ export function useGameActions({
     }
   }, [visibility.collection, openModal, closeModal]);
 
-  const handleOpenLeaderboard = useCallback(async () => {
+  const handleOpenLeaderboard = useCallback(async (opener) => {
     audio.playClick();
     try {
       const data = await api.getLeaderboard();
@@ -104,7 +104,7 @@ export function useGameActions({
     } catch (e) {
       setLeaderboardData([]);
     }
-    openModal('leaderboard');
+    openModal('leaderboard', opener);
   }, []);
 
   const handleBuy = useCallback(async (itemId, price, type) => {

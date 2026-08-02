@@ -4,16 +4,16 @@ import { TreeVisual } from '../TreeVisual';
 import { CompanionSprite } from '../CompanionSprite';
 
 const MemoizedTree = memo(TreeVisual);
-const BURST_LABELS = {
-    WATER: 'Splash!',
-    PEST: 'Shoo!',
-    FERTILIZE: 'Nourish!',
-    PRUNE: 'Trim!',
-    SUNLIGHT: 'Warmth!',
-    STORM: 'Charge!',
+const BURST_LABEL_KEYS = {
+    WATER: 'burstWater',
+    PEST: 'burstPest',
+    FERTILIZE: 'burstFertilize',
+    PRUNE: 'burstPrune',
+    SUNLIGHT: 'burstSunlight',
+    STORM: 'burstStorm',
 };
 
-export function GameStage({ actionBursts, shakeAnim, game, isDay, onShakeTree }) {
+export function GameStage({ actionBursts, shakeAnim, game, isDay, t, onShakeTree }) {
     return (
         <>
             {/* Visual Action Bursts */}
@@ -30,19 +30,32 @@ export function GameStage({ actionBursts, shakeAnim, game, isDay, onShakeTree })
                             <span key={i} style={{ '--burst-angle': `${i * 60}deg`, '--burst-distance': `${22 + i * 4}px` }} />
                         ))}
                     </div>
-                    <div className="action-burst-label">{BURST_LABELS[burst.type]}</div>
+                    <div className="action-burst-label">{t(BURST_LABEL_KEYS[burst.type])}</div>
                 </div>
             ))}
 
-            <div className={`flex-1 w-full min-h-0 relative z-10 mb-4 cursor-pointer transition-transform ${shakeAnim ? 'animate-wiggle' : ''}`} onClick={onShakeTree}>
+            <div
+                className={`flex-1 w-full min-h-0 relative z-10 mb-4 cursor-pointer transition-transform ${shakeAnim ? 'animate-wiggle' : ''}`}
+                role="button"
+                tabIndex="0"
+                aria-label={t('shakeTree')}
+                onClick={onShakeTree}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onShakeTree();
+                    }
+                }}
+            >
                 <MemoizedTree
                     level={game.level}
                     eventType={game.activeEvent}
                     skin={game.inventory?.treeSkin}
                     season={game.season}
                     weather={game.weather}
+                    t={t}
                 />
-                <CompanionSprite companion={game.companion} isDay={isDay} />
+                <CompanionSprite companion={game.companion} isDay={isDay} t={t} />
             </div>
         </>
     );
