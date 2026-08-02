@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { audio } from '../utils/audio';
+import { Coins, Droplets, Gamepad, Sparkles, Zap } from './Icons';
+import { normalizeReward } from '../features/minigame/index.js';
 
-const MEMORY_EMOJIS = ['🌳', '🌸', '🍂', '❄️', '🌺', '🍄'];
+const MEMORY_ASSETS = ['mature-tree', 'blossom', 'maple-leaf', 'snowflake', 'sprout', 'sparkles'];
 
 function shuffleArray(arr) {
     const a = [...arr];
@@ -22,8 +24,8 @@ function MemoryGame({ onFinish, t }) {
     const [complete, setComplete] = useState(false);
 
     useEffect(() => {
-        const pairs = [...MEMORY_EMOJIS, ...MEMORY_EMOJIS];
-        setCards(shuffleArray(pairs).map((emoji, i) => ({ id: i, emoji, flipped: false })));
+        const pairs = [...MEMORY_ASSETS, ...MEMORY_ASSETS];
+        setCards(shuffleArray(pairs).map((asset, i) => ({ id: i, asset, flipped: false })));
         setGameStarted(true);
     }, []);
 
@@ -37,7 +39,7 @@ function MemoryGame({ onFinish, t }) {
         if (newFlipped.length === 2) {
             setMoves(m => m + 1);
             const [a, b] = newFlipped;
-            if (cards[a].emoji === cards[b].emoji) {
+            if (cards[a].asset === cards[b].asset) {
                 setTimeout(() => {
                     const newMatched = [...matched, a, b];
                     setMatched(newMatched);
@@ -88,7 +90,7 @@ function MemoryGame({ onFinish, t }) {
                         >
                             {isFlipped ? (
                                 <span className={`transition-transform duration-300 ${isMatched ? 'scale-110' : 'scale-100'}`}>
-                                    {card.emoji}
+                                    <img src={`/assets/icons/${card.asset}.png`} alt="" className="mini-game-card-art" draggable="false" />
                                 </span>
                             ) : (
                                 <span className="text-white/80 text-lg">?</span>
@@ -99,7 +101,7 @@ function MemoryGame({ onFinish, t }) {
             </div>
             {complete && (
                 <div className="text-center animate-bounce mt-2">
-                    <span className="text-lg font-bold text-green-600">🎉 {t('matched')}</span>
+                    <span className="text-lg font-bold text-green-600"><Sparkles size={16} /> {t('matched')}</span>
                 </div>
             )}
         </div>
@@ -172,7 +174,7 @@ function QuickWaterGame({ onFinish, t }) {
     if (!started) {
         return (
             <div className="flex flex-col items-center gap-4 py-8">
-                <div className="text-6xl animate-bounce">💧</div>
+                <div className="mini-game-water-mark animate-bounce"><Droplets size={42} /></div>
                 <p className="text-gray-500 text-sm text-center">{t('quickWaterDesc')}</p>
                 <button
                     onClick={startGame}
@@ -206,7 +208,7 @@ function QuickWaterGame({ onFinish, t }) {
                         className="absolute w-10 h-10 text-2xl flex items-center justify-center rounded-full bg-blue-400/25 hover:bg-blue-400/50 transition-all cursor-pointer animate-pulse hover:scale-125 z-10"
                         style={{ left: `${drop.x}%`, top: `${drop.y}%`, transform: 'translate(-50%, -50%)' }}
                     >
-                        💧
+                        <Droplets size={22} />
                     </button>
                 ))}
                 {gameOver && (
@@ -226,6 +228,7 @@ function QuickWaterGame({ onFinish, t }) {
 export function MiniGameModal({ gamesRemaining, onReward, onClose, t }) {
     const [selectedGame, setSelectedGame] = useState(null);
     const [result, setResult] = useState(null);
+    const [rewardPending, setRewardPending] = useState(false);
 
     useEffect(() => {
         const handler = (e) => { if (e.key === 'Escape') onClose(); };
@@ -237,9 +240,12 @@ export function MiniGameModal({ gamesRemaining, onReward, onClose, t }) {
         if (e.target === e.currentTarget && !selectedGame) { audio.playClick(); onClose(); }
     };
 
-    const handleGameFinish = useCallback((score) => {
-        setResult({ score });
-        onReward(selectedGame, score);
+    const handleGameFinish = useCallback(async (score) => {
+        setRewardPending(true);
+        const response = await onReward?.(selectedGame, score);
+        const reward = normalizeReward(response);
+        setResult({ score, reward, failed: !reward });
+        setRewardPending(false);
     }, [selectedGame, onReward]);
 
     const resetGame = () => {
@@ -258,7 +264,7 @@ export function MiniGameModal({ gamesRemaining, onReward, onClose, t }) {
                 {/* Header */}
                 <div className="p-4 bg-gradient-to-r from-[#2F6B45] to-[#458e5f] text-white flex justify-between items-center gap-3 relative overflow-hidden border-b border-emerald-800/20">
                     <div className="relative z-10 flex items-center gap-2 min-w-0">
-                        <span className="text-2xl">🎮</span>
+                        <Gamepad size={22} />
                         <h2 className="text-xl font-bold tracking-wide truncate">{t('miniGamesTitle')}</h2>
                     </div>
                     <div className="relative z-10 flex items-center gap-2 shrink-0">
@@ -287,17 +293,25 @@ export function MiniGameModal({ gamesRemaining, onReward, onClose, t }) {
                 <div className="p-4 overflow-y-auto flex-1 bg-gray-50">
                     {gamesRemaining <= 0 && !selectedGame ? (
                         <div className="text-center py-12">
-                            <span className="text-5xl mb-4 block">😴</span>
+                            <span className="mini-game-empty-mark" aria-hidden="true"><Gamepad size={34} /></span>
                             <p className="text-gray-500 font-medium">{t('noGamesLeft')}</p>
                         </div>
                     ) : result ? (
                         <div className="text-center py-8 animate-in fade-in">
-                            <span className="text-5xl mb-4 block">🎉</span>
-                            <p className="text-2xl font-bold text-emerald-600 mb-2">{t('gameOver')}</p>
-                            <p className="text-lg text-gray-600 mb-1">{t('score')}: {result.score}</p>
-                            <p className="text-amber-500 font-bold mb-6">{t('coinsEarned', Math.min(result.score * 5, 200))}</p>
+                            <span className="mini-game-result-mark" aria-hidden="true"><Sparkles size={34} /></span>
+                            <p className="text-2xl font-bold text-emerald-600 mb-2">{result.failed ? t('minigameError') : t('gameOver')}</p>
+                            <p className="text-lg text-gray-600 mb-3">{t('score')}: {result.score}</p>
+                            {result.reward && (
+                                <div className="mini-game-reward-grid" aria-label={t('minigameResults')}>
+                                    <span><Coins size={17} /> +{result.reward.coinsEarned} {t('coinsShort')}</span>
+                                    <span><Zap size={17} /> +{result.reward.xpEarned} XP</span>
+                                    <span className="mini-game-games-left">{t('gamesRemaining', result.reward.gamesRemaining)}</span>
+                                    {result.reward.bonus && <span className="mini-game-bonus">{t('minigameBonus', result.reward.bonus.multiplier || 2)}</span>}
+                                </div>
+                            )}
+                            {rewardPending && <p className="text-gray-500 text-sm">{t('savingReward')}</p>}
                             <div className="flex gap-3 justify-center">
-                                {gamesRemaining > 1 && (
+                                {((result.reward?.gamesRemaining ?? gamesRemaining) > 0) && (
                                     <button onClick={resetGame} className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-colors">
                                         {t('playAgain')}
                                     </button>
@@ -319,7 +333,7 @@ export function MiniGameModal({ gamesRemaining, onReward, onClose, t }) {
                                 className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-4 transition-all hover:shadow-md hover:scale-[1.02]"
                             >
                                 <div className="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center text-3xl shadow-inner border border-purple-100 flex-shrink-0">
-                                    🃏
+                                    <Sparkles size={27} />
                                 </div>
                                 <div className="flex-1 text-left">
                                     <h3 className="font-bold text-gray-800">{t('memoryMatch')}</h3>
@@ -334,7 +348,7 @@ export function MiniGameModal({ gamesRemaining, onReward, onClose, t }) {
                                 className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-4 transition-all hover:shadow-md hover:scale-[1.02]"
                             >
                                 <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-3xl shadow-inner border border-blue-100 flex-shrink-0">
-                                    💧
+                                    <Droplets size={27} />
                                 </div>
                                 <div className="flex-1 text-left">
                                     <h3 className="font-bold text-gray-800">{t('quickWater')}</h3>

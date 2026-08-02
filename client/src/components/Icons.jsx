@@ -30,6 +30,10 @@ const ICON_ASSETS = {
     Recycle: 'recycle',
     Gamepad: 'gamepad',
     StatsIcon: 'stats',
+    ArrowLeft: 'close',
+    Gift: 'gift',
+    Handshake: 'handshake',
+    Sprout: 'sprout',
 };
 
 const makeIcon = (asset, label) => {
@@ -84,3 +88,7 @@ export const Paw = makeIcon(ICON_ASSETS.Paw, 'Paw');
 export const Recycle = makeIcon(ICON_ASSETS.Recycle, 'Recycle');
 export const Gamepad = makeIcon(ICON_ASSETS.Gamepad, 'Gamepad');
 export const StatsIcon = makeIcon(ICON_ASSETS.StatsIcon, 'StatsIcon');
+export const ArrowLeft = makeIcon(ICON_ASSETS.ArrowLeft, 'ArrowLeft');
+export const Gift = makeIcon(ICON_ASSETS.Gift, 'Gift');
+export const Handshake = makeIcon(ICON_ASSETS.Handshake, 'Handshake');
+export const Sprout = makeIcon(ICON_ASSETS.Sprout, 'Sprout');

@@ -1,20 +1,5 @@
 import React from 'react';
 
-const weatherLabels = {
-    sunny: 'Sunny',
-    cloudy: 'Cloudy',
-    rainy: 'Rainy',
-    stormy: 'Stormy',
-    snowy: 'Snowy',
-};
-
-const seasonLabels = {
-    spring: 'Spring',
-    summer: 'Summer',
-    autumn: 'Autumn',
-    winter: 'Winter',
-};
-
 export const EnvironmentBackdrop = ({
     isDay,
     weather = 'sunny',
@@ -24,8 +9,6 @@ export const EnvironmentBackdrop = ({
     const backgroundAsset = isDay
         ? '/assets/environments/day-forest.png'
         : '/assets/environments/night-garden.png';
-    const label = `${isDay ? 'Day' : 'Night'} ${weatherLabels[weather] || weather} ${seasonLabels[season] || season} garden backdrop`;
-
     return (
         <div
             className={[
@@ -37,7 +20,7 @@ export const EnvironmentBackdrop = ({
             ].filter(Boolean).join(' ')}
             aria-hidden="true"
         >
-            <img className="environment-art" src={backgroundAsset} alt={label} />
+            <img className="environment-art" src={backgroundAsset} alt="" />
             <div className="environment-sky-glow" />
             <div className="environment-vignette" />
             <div className="environment-mist" />

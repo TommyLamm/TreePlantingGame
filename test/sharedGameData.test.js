@@ -39,6 +39,13 @@ test('shared game data preserves the canonical static definitions', () => {
         { day: 6, coins: 400, xp: 0, special: null, icon: '🪙' },
         { day: 7, coins: 500, xp: 25, special: 'rareItem', icon: '🎁' },
     ]);
+    assert.deepEqual(data.weatherModifiers, {
+        sunny: { xpMult: 1.2, coinMult: 1.0 },
+        cloudy: { xpMult: 1.0, coinMult: 1.0 },
+        rainy: { xpMult: 1.3, coinMult: 0.9 },
+        stormy: { xpMult: 0.8, coinMult: 1.3 },
+        snowy: { xpMult: 1.0, coinMult: 1.2 },
+    });
 });
 
 test('prestige modal renders the shared prestige upgrade definitions', () => {
@@ -61,6 +68,8 @@ test('server adapter wires shared rules and projects daily reward fields', () =>
     assert.strictEqual(serverData.STORE_ITEMS, shared.storeItems);
     assert.strictEqual(serverData.COMPANIONS, shared.companions);
     assert.strictEqual(serverData.PRESTIGE_UPGRADES, shared.prestigeUpgrades);
+    assert.strictEqual(serverData.WEATHER_MODIFIERS, shared.weatherModifiers);
+    assert.deepEqual(serverData.WEATHER_TYPES, Object.keys(shared.weatherModifiers));
     assert.deepEqual(serverData.DAILY_REWARDS, shared.dailyRewards.map(({ day, coins, xp }) => ({
         day,
         coins,

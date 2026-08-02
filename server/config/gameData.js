@@ -9,14 +9,8 @@ const EVENT_REWARDS = {
     STORM:     { xpMin: 15, xpMax: 30, coinMin: 25, coinMax: 50 },
 };
 
-const WEATHER_TYPES = ['sunny', 'cloudy', 'rainy', 'stormy', 'snowy'];
-const WEATHER_MODIFIERS = {
-    sunny:  { xpMult: 1.2, coinMult: 1.0 },
-    cloudy: { xpMult: 1.0, coinMult: 1.0 },
-    rainy:  { xpMult: 1.3, coinMult: 0.9 },
-    stormy: { xpMult: 0.8, coinMult: 1.3 },
-    snowy:  { xpMult: 1.0, coinMult: 1.2 },
-};
+const WEATHER_MODIFIERS = shared.weatherModifiers;
+const WEATHER_TYPES = Object.keys(WEATHER_MODIFIERS);
 
 const ACHIEVEMENTS = [
     { id: 'first_event', condition: (u) => u.interactionCount >= 1 },

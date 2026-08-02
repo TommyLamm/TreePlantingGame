@@ -92,9 +92,10 @@ test('regular heartbeat returns the fixed weather, season, daily reward state, a
   assert.equal(response.season, 'spring');
   assert.equal(response.dailyRewardAvailable, true);
   assert.equal(response.lastTick, harness.now());
+  assert.equal(typeof response.nextEventAt, 'number');
   assert.deepEqual(
     Object.keys(response).filter(key => !Object.hasOwn(user, key)).sort(),
-    ['dailyRewardAvailable', 'season', 'weather'],
+    ['dailyRewardAvailable', 'nextEventAt', 'season', 'weather'],
   );
   assert.equal(harness.dirtyCount(), 1);
 });

@@ -32,7 +32,7 @@ function getSeasonAccent(season, weather, skin) {
     return 'summer';
 }
 
-export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather = 'sunny', isStatic = false }) => {
+export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather = 'sunny', isStatic = false, t }) => {
     const safeLevel = Number(level) || 1;
     const stage = getStage(safeLevel);
     const assetSkin = getSkin(skin);
@@ -77,7 +77,7 @@ export const TreeVisual = ({ level, eventType, skin, season = 'spring', weather 
                 safeLevel === MAX_LEVEL ? 'raster-max-level' : '',
                 eventType ? `raster-event-active-${eventType.toLowerCase()}` : '',
             ].filter(Boolean).join(' ')}
-            aria-label={`Tree level ${safeLevel}`}
+            aria-label={t?.('treeLevel', safeLevel)}
         >
             <div className="scene-ground-layer" aria-hidden="true">
                 <img className="raster-ground-patch" src="/assets/decor/ground-patch.png" alt="" draggable="false" />

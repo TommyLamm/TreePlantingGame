@@ -505,7 +505,14 @@ test('minigame resets dates, enforces three per day, and caps valid rewards', ()
   const h = harness();
   const service = createRewardService(h.dependencies);
   const reset = user({ minigameDate: '2026-06-29', minigameCount: 3 });
-  assert.deepEqual(service.claimMinigameReward(reset, 'memory', 50), { coinsEarned: 200, gamesRemaining: 2 });
+  const cappedReward = service.claimMinigameReward(reset, 'memory', 50);
+  assert.deepEqual(
+    { coinsEarned: cappedReward.coinsEarned, xpEarned: cappedReward.xpEarned, gamesRemaining: cappedReward.gamesRemaining },
+    { coinsEarned: 200, xpEarned: 20, gamesRemaining: 2 },
+  );
+  assert.equal(cappedReward.gameState.coins, reset.coins);
+  assert.equal(cappedReward.gameState.xp, reset.xp);
+  assert.equal(cappedReward.gameState.minigameCount, 1);
   assert.equal(reset.minigameDate, '2026-06-30');
   assert.equal(reset.minigameCount, 1);
 
@@ -514,9 +521,14 @@ test('minigame resets dates, enforces three per day, and caps valid rewards', ()
     400,
     'Max 3 mini-games per day',
   );
+  const fractionalReward = service.claimMinigameReward(
+    user({ minigameDate: '2026-06-30' }),
+    'water',
+    1.9,
+  );
   assert.deepEqual(
-    service.claimMinigameReward(user({ minigameDate: '2026-06-30' }), 'water', 1.9),
-    { coinsEarned: 9, gamesRemaining: 2 },
+    { coinsEarned: fractionalReward.coinsEarned, xpEarned: fractionalReward.xpEarned, gamesRemaining: fractionalReward.gamesRemaining },
+    { coinsEarned: 9, xpEarned: 0, gamesRemaining: 2 },
   );
 });
 

@@ -96,7 +96,7 @@ export function useGameActions({
     }
   }, [visibility.collection, openModal, closeModal]);
 
-  const handleOpenLeaderboard = useCallback(async () => {
+  const handleOpenLeaderboard = useCallback(async (opener) => {
     audio.playClick();
     try {
       const data = await api.getLeaderboard();
@@ -104,7 +104,7 @@ export function useGameActions({
     } catch (e) {
       setLeaderboardData([]);
     }
-    openModal('leaderboard');
+    openModal('leaderboard', opener);
   }, []);
 
   const handleBuy = useCallback(async (itemId, price, type) => {
@@ -212,9 +212,20 @@ export function useGameActions({
   const handleMinigameReward = useCallback(async (gameType, score) => {
     try {
       const data = await api.claimMinigameReward(currentUser, gameType, score);
-      addLog(t('coinsEarned', data.coinsEarned));
-    } catch (e) { console.error(e); }
-  }, [currentUser, t, addLog]);
+      dispatch({ type: "APPLY_MINIGAME_REWARD", data });
+      addLog(t("coinsEarned", data.coinsEarned));
+      if (data.xpEarned > 0) {
+        addLog(t("xpEarned", data.xpEarned));
+      }
+      if (data.bonus) {
+        addLog(t("minigameBonus"));
+      }
+      return data;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }, [currentUser, t, addLog, dispatch]);
 
   const handleOfflineClose = useCallback(() => {
     closeModal('offlineEarnings');

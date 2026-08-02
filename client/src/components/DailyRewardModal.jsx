@@ -64,10 +64,10 @@ export function DailyRewardModal({ loginStreak, currentDayIndex, claimed, onClai
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-bold text-gray-800">
-                                    {DAILY_REWARDS[currentDayIndex]?.icon} Day {currentDayIndex + 1}
+                                    {DAILY_REWARDS[currentDayIndex]?.icon} {t('day', currentDayIndex + 1)}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                    💰 {DAILY_REWARDS[currentDayIndex]?.coins} coins
+                                    💰 {t('coinsValue', DAILY_REWARDS[currentDayIndex]?.coins)}
                                     {DAILY_REWARDS[currentDayIndex]?.xp > 0 && ` + ${DAILY_REWARDS[currentDayIndex].xp} XP`}
                                 </p>
                             </div>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 const initialVisibility = {
   collection: false,
@@ -19,11 +19,25 @@ export function useGameModals() {
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [gardenVisitData, setGardenVisitData] = useState(null);
   const [giftError, setGiftError] = useState(null);
+  const returnFocusRef = useRef(null);
 
-  const openModal = useCallback(name =>
-    setVisibility(current => ({ ...current, [name]: true })), []);
-  const closeModal = useCallback(name =>
-    setVisibility(current => ({ ...current, [name]: false })), []);
+  const openModal = useCallback((name, opener) => {
+    if (typeof document !== 'undefined') {
+      returnFocusRef.current = opener instanceof HTMLElement ? opener : document.activeElement;
+    }
+    setVisibility(current => ({ ...current, [name]: true }));
+  }, []);
+  const closeModal = useCallback(name => {
+    const opener = returnFocusRef.current;
+    setVisibility(current => ({ ...current, [name]: false }));
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        if (!document.querySelector('.game-modals-layer') && opener instanceof HTMLElement && opener.isConnected) {
+          opener.focus({ preventScroll: true });
+        }
+      });
+    }
+  }, []);
   const resetModals = useCallback(() => setVisibility(initialVisibility), []);
 
   return {
@@ -37,5 +51,6 @@ export function useGameModals() {
     setGardenVisitData,
     giftError,
     setGiftError,
+    returnFocusRef,
   };
 }

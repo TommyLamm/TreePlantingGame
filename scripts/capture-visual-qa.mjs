@@ -8,7 +8,9 @@ const debugBase = `http://127.0.0.1:${port}`;
 
 const scenarios = [
   { name: 'desktop-day-peaceful', width: 1440, height: 900, user: 'VisualDay', hour: 10 },
+  { name: 'desktop-reduced-motion', width: 1440, height: 900, user: 'VisualReduced', hour: 10, reducedMotion: true },
   { name: 'desktop-night-companion-event', width: 1440, height: 900, user: 'VisualEvent', hour: 22 },
+  { name: 'tablet-onboarding', width: 768, height: 1024, user: 'VisualOnboarding', hour: 10, onboarding: 'active' },
   { name: 'tablet-day-event', width: 768, height: 1024, user: 'VisualEvent', hour: 10 },
   { name: 'mobile-day-peaceful', width: 375, height: 812, user: 'VisualDay', hour: 10 },
   { name: 'mobile-night-storm', width: 375, height: 812, user: 'VisualEvent', hour: 22 },
@@ -83,6 +85,54 @@ async function captureScenario(scenario) {
   const failures = [];
   const consoleErrors = [];
 
+  const forcedEvent = scenario.name.includes('storm') || scenario.name.includes('night-companion')
+    ? 'STORM'
+    : scenario.name.includes('event')
+      ? 'PEST'
+      : null;
+  const forcedWeather = forcedEvent === 'STORM'
+    ? 'stormy'
+    : scenario.name.includes('event')
+      ? 'rainy'
+      : 'sunny';
+  const mockHeartbeat = {
+    username: scenario.user,
+    xp: 34,
+    level: 12,
+    coins: 420,
+    inventory: { xpBuff: false, autoWater: false, treeSkin: 'default', unlockedSkins: ['default'] },
+    joinDate: Date.now() - 86400000,
+    playTime: 180000,
+    interactionCount: 8,
+    profile: { avatar: null, birthday: '', signature: '' },
+    achievements: [],
+    activeEvent: forcedEvent,
+    isDemoMode: false,
+    weather: forcedWeather,
+    season: forcedEvent === 'STORM' ? 'autumn' : 'spring',
+    combo: forcedEvent ? 2 : 0,
+    maxCombo: 4,
+    companion: scenario.name.includes('night') ? 'owl' : null,
+    unlockedCompanions: scenario.name.includes('night') ? ['owl'] : [],
+    generation: 0,
+    prestigePoints: 0,
+    prestigeUpgrades: {},
+    loginStreak: 3,
+    maxLoginStreak: 3,
+    dailyRewardClaimed: true,
+    dailyRewardAvailable: false,
+    totalXpEarned: 120,
+    totalCoinsEarned: 800,
+    totalEventsResolved: 4,
+    lastOfflineXp: 0,
+    lastOfflineCoins: 0,
+    goldenHourUntil: 0,
+    minigameCount: 0,
+    minigameDate: null,
+    nextEventAt: null,
+    eventExpiresAt: forcedEvent ? Date.now() + 60000 : null,
+  };
+
   client.on('Network.loadingFailed', event => failures.push({
     url: event.url,
     errorText: event.errorText,
@@ -90,6 +140,19 @@ async function captureScenario(scenario) {
   }));
   client.on('Runtime.exceptionThrown', event => {
     consoleErrors.push(event.exceptionDetails?.text || 'Runtime exception');
+  });
+  await client.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/heartbeat', requestStage: 'Response' }] });
+  client.on('Fetch.requestPaused', async event => {
+    try {
+      await client.send('Fetch.fulfillRequest', {
+        requestId: event.requestId,
+        responseCode: 200,
+        responseHeaders: [{ name: 'content-type', value: 'application/json' }],
+        body: Buffer.from(JSON.stringify(mockHeartbeat)).toString('base64'),
+      });
+    } catch (error) {
+      consoleErrors.push(`Heartbeat mock failed: ${error.message}`);
+    }
   });
 
   await Promise.all([
@@ -103,6 +166,9 @@ async function captureScenario(scenario) {
     deviceScaleFactor: 1,
     mobile: scenario.width <= 640,
   });
+  await client.send('Emulation.setEmulatedMedia', {
+    features: scenario.reducedMotion ? [{ name: 'prefers-reduced-motion', value: 'reduce' }] : [],
+  });
 
   const fixedTime = `2026-07-11T${String(scenario.hour).padStart(2, '0')}:00:00+08:00`;
   await client.send('Page.addScriptToEvaluateOnNewDocument', {
@@ -110,6 +176,9 @@ async function captureScenario(scenario) {
       localStorage.setItem('zenUser', ${JSON.stringify(scenario.user)});
       localStorage.setItem('zenMuted', 'true');
       localStorage.setItem('zenLang', 'en');
+      localStorage.setItem('zenOnboardingState', ${JSON.stringify(JSON.stringify(scenario.onboarding === 'active'
+        ? { active: true, step: 1, stepCount: 7, completed: false, dismissed: false }
+        : { active: false, step: 6, stepCount: 7, completed: true, dismissed: false }))});
       const NativeDate = Date;
       const fixedTimestamp = new NativeDate(${JSON.stringify(fixedTime)}).getTime();
       globalThis.Date = class extends NativeDate {

@@ -1,4 +1,4 @@
-const { EVENT_REWARDS, PRESTIGE_UPGRADES } = require('../config/gameData');
+const { EVENT_REWARDS, PRESTIGE_UPGRADES, WEATHER_MODIFIERS } = require('../config/gameData');
 const { HttpError } = require('../http/errors');
 
 function isPlainObject(value) {
@@ -83,9 +83,12 @@ function createProgressionService({
       const goldenHourMult = goldenHourActive ? 2 : 1;
       const xpBuffMult = user.inventory?.xpBuff ? 1.5 : 1;
 
-      const totalEventXpMult = xpBuffMult * companionBonus.eventXpMult * companionBonus.xpMult * prestigeBonus.xpMult * comboMult * goldenHourMult;
+      // Apply weather multiplier to manual event rewards (graceful fallback for mocks)
+      const weatherModifier = (gameStateService.getWeather ? WEATHER_MODIFIERS[gameStateService.getWeather().type] : null) || { xpMult: 1, coinMult: 1 };
+
+      const totalEventXpMult = xpBuffMult * companionBonus.eventXpMult * companionBonus.xpMult * prestigeBonus.xpMult * comboMult * goldenHourMult * weatherModifier.xpMult;
       const reward = (Math.floor(random() * (rewards.xpMax - rewards.xpMin + 1)) + rewards.xpMin) * totalEventXpMult;
-      const coinReward = Math.floor((Math.floor(random() * (rewards.coinMax - rewards.coinMin + 1)) + rewards.coinMin) * companionBonus.coinMult * prestigeBonus.coinMult);
+      const coinReward = Math.floor((Math.floor(random() * (rewards.coinMax - rewards.coinMin + 1)) + rewards.coinMin) * companionBonus.coinMult * prestigeBonus.coinMult * weatherModifier.coinMult);
 
       const reqXp = Math.floor(10 + Math.pow(user.level, 1.6));
       user.xp += reward;
