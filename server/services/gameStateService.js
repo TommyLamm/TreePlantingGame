@@ -1,4 +1,5 @@
 const { migrateUser } = require('../data/userRepository');
+const { EVENT_BALANCE } = require('../config/eventBalance');
 const {
     COMPANIONS,
     PRESTIGE_UPGRADES,
@@ -196,8 +197,21 @@ function createGameStateService({
         }
 
         const prestigeEventReduction = prestigeBonus.eventFreqReduction || 0;
-        const baseEventInterval = 10 * 60000;
-        const eventIntervalMs = Math.max(60000, baseEventInterval - prestigeEventReduction) / speedMultiplier;
+        const isFirstEvent = !user.hasHadFirstEvent && (user.totalEventsResolved || 0) === 0;
+        let eventIntervalMs;
+        if (isFirstEvent) {
+            // Compute once based on stable lastEventTime so it stays fixed across calls
+            if (user._firstEventInterval === undefined) {
+                const intervalRange = EVENT_BALANCE.FIRST_EVENT_MAX_MS - EVENT_BALANCE.FIRST_EVENT_MIN_MS;
+                const base = user.lastEventTime || now();
+                const offset = base % (intervalRange + 1);
+                user._firstEventInterval = EVENT_BALANCE.FIRST_EVENT_MIN_MS + offset;
+            }
+            eventIntervalMs = user._firstEventInterval / speedMultiplier;
+        } else {
+            eventIntervalMs = Math.max(EVENT_BALANCE.EVENT_MIN_INTERVAL_MS, EVENT_BALANCE.EVENT_BASE_INTERVAL_MS - prestigeEventReduction) / speedMultiplier;
+        }
+        const nextEventAt = user.lastEventTime + eventIntervalMs;
 
         if (!user.activeEvent && user.level < 100) {
             const timeSinceEvent = currentTime - user.lastEventTime;
@@ -206,6 +220,10 @@ function createGameStateService({
                 const events = ['WATER', 'PEST', 'FERTILIZE', 'PRUNE', 'SUNLIGHT', 'STORM'];
                 user.activeEvent = events[Math.floor(random() * events.length)];
                 user.eventSpawnedAt = currentTime;
+                if (isFirstEvent) {
+                    user.hasHadFirstEvent = true;
+                    delete user._firstEventInterval;
+                }
                 changed = true;
                 logger.log(`[Game Logic] Spawned ${user.activeEvent}`);
             }
@@ -246,9 +264,9 @@ function createGameStateService({
         }
 
         if (user.activeEvent === 'STORM' && user.eventSpawnedAt) {
-            const stormTimeout = (2 * 60000) / speedMultiplier;
+            const stormTimeout = EVENT_BALANCE.STORM_TIMEOUT_MS / speedMultiplier;
             if (currentTime - user.eventSpawnedAt >= stormTimeout) {
-                user.xp = Math.max(0, user.xp - 10);
+                user.xp = Math.max(0, user.xp - EVENT_BALANCE.STORM_PENALTY_XP);
                 user.activeEvent = null;
                 user.eventSpawnedAt = null;
                 user.lastEventTime = currentTime;
@@ -257,6 +275,20 @@ function createGameStateService({
                 changed = true;
                 logger.log('[Game Logic] STORM penalty — user lost 10 XP');
             }
+        }
+
+        // Compute optional response timestamps directly on user (ephemeral)
+        if (!user.activeEvent) {
+            user.nextEventAt = Math.floor(nextEventAt);
+        } else {
+            user.nextEventAt = Math.floor(currentTime);
+        }
+        if (user.activeEvent === 'STORM' && user.eventSpawnedAt) {
+            user.eventExpiresAt = Math.floor(user.eventSpawnedAt + EVENT_BALANCE.STORM_TIMEOUT_MS / speedMultiplier);
+        } else if (user.activeEvent === 'WATER' && user.inventory?.autoWater && user.eventSpawnedAt) {
+            user.eventExpiresAt = Math.floor(user.eventSpawnedAt + 5000 / speedMultiplier);
+        } else {
+            user.eventExpiresAt = undefined;
         }
 
         if (achievementService.checkAchievements(user)) {
@@ -286,6 +318,11 @@ function createGameStateService({
             season: currentWeather.season,
         };
         if (dailyReward) response.dailyRewardAvailable = !user.dailyRewardClaimed;
+        // Strip undefined optional timestamps so they only appear when numeric
+        if (response.nextEventAt === undefined) delete response.nextEventAt;
+        if (response.eventExpiresAt === undefined) delete response.eventExpiresAt;
+        // Strip ephemeral internal fields
+        delete response._firstEventInterval;
         return response;
     }
 
@@ -307,6 +344,8 @@ function createGameStateService({
             clearedTransient = true;
         }
 
+        // Leave nextEventAt/eventExpiresAt on user so existing heartbeat tests
+        // see them as user-owned (not extra response keys).
         if (clearedTransient) repository.markDirty();
         return response;
     }
