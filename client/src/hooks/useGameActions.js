@@ -212,9 +212,20 @@ export function useGameActions({
   const handleMinigameReward = useCallback(async (gameType, score) => {
     try {
       const data = await api.claimMinigameReward(currentUser, gameType, score);
-      addLog(t('coinsEarned', data.coinsEarned));
-    } catch (e) { console.error(e); }
-  }, [currentUser, t, addLog]);
+      dispatch({ type: "SYNC_SERVER", data });
+      addLog(t("coinsEarned", data.coinsEarned));
+      if (data.xpEarned > 0) {
+        addLog(t("xpEarned", data.xpEarned));
+      }
+      if (data.bonus) {
+        addLog(t("minigameBonus"));
+      }
+      return data;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }, [currentUser, t, addLog, dispatch]);
 
   const handleOfflineClose = useCallback(() => {
     closeModal('offlineEarnings');

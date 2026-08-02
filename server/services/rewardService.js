@@ -144,9 +144,9 @@ function createRewardService({
   }
 
   function claimMinigameReward(user, gameType, score) {
-    if (gameType !== 'memory' && gameType !== 'water') {
-      throw new HttpError(400, 'Invalid mini-game');
-    }
+  if (gameType !== 'memory' && gameType !== 'water') {
+    throw new HttpError(400, 'Invalid mini-game');
+  }
     if (typeof score !== 'number' || !Number.isFinite(score) || score < 0) {
       throw new HttpError(400, 'Invalid score');
     }
@@ -163,12 +163,22 @@ function createRewardService({
     }
 
     const coinsEarned = Math.min(Math.floor(score * 5), 200);
+    const xpEarned = Math.min(Math.floor(score * 0.5), 20);
     user.coins += coinsEarned;
     user.totalCoinsEarned = (user.totalCoinsEarned || 0) + coinsEarned;
+    user.xp += xpEarned;
+    user.totalXpEarned = (user.totalXpEarned || 0) + xpEarned;
     user.minigameCount++;
 
+    let bonus = null;
+    if (score >= 40) {
+      const bonusDuration = 5 * 60 * 1000;
+      user.goldenHourUntil = now() + bonusDuration;
+      bonus = { type: "xpBoost", duration: bonusDuration, multiplier: 2 };
+    }
+
     repository.markDirty();
-    return { coinsEarned, gamesRemaining: 3 - user.minigameCount };
+    return { coinsEarned, xpEarned, gamesRemaining: 3 - user.minigameCount, bonus, goldenHourUntil: user.goldenHourUntil || 0 };
   }
 
   return {
